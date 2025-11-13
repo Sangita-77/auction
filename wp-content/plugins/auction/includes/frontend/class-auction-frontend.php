@@ -536,8 +536,8 @@ class Auction_Frontend {
 					),
 				);
 			}
-
-			$current_time = current_time( 'mysql' );
+			// $current_time = current_time( 'mysql' );
+			$current_time = gmdate( 'Y-m-d H:i:s', current_time( 'timestamp', true ) );
 
 			if ( $hide_ended ) {
 				$meta_query[] = array(
