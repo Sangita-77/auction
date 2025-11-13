@@ -1,0 +1,49 @@
+.auction-product-panel {
+	margin-top: 1em;
+}
+
+.auction-product-panel .auction-subtabs {
+	margin-bottom: 1em;
+	display: flex;
+	gap: 0.5em;
+}
+
+.auction-product-panel .auction-subtabs button {
+	border: 1px solid #c3c4c7;
+	background: #f6f7f7;
+	color: #1d2327;
+	padding: 6px 12px;
+	border-radius: 3px;
+	cursor: pointer;
+}
+
+.auction-product-panel .auction-subtabs button.is-active {
+	background: #2271b1;
+	color: #fff;
+	border-color: #2271b1;
+}
+
+.auction-subtab-section {
+	display: none;
+}
+
+.auction-subtab-section.is-active {
+	display: block;
+}
+
+.auction-rules-table {
+	width: 100%;
+	border-collapse: collapse;
+	margin-top: 1em;
+}
+
+.auction-rules-table th,
+.auction-rules-table td {
+	padding: 8px;
+	border: 1px solid #ccd0d4;
+}
+
+.auction-rules-table input[type="number"] {
+	width: 100%;
+}
+

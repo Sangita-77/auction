@@ -1,0 +1,913 @@
+<?php
+/**
+ * Admin menu and settings pages for Auction plugin.
+ *
+ * @package Auction
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * Registers Auction admin menu items.
+ */
+class Auction_Admin_Menu {
+
+	/**
+	 * Singleton instance.
+	 *
+	 * @var Auction_Admin_Menu|null
+	 */
+	private static $instance = null;
+
+	/**
+	 * Option name for global settings.
+	 *
+	 * @var string
+	 */
+	private $option_name = 'auction_settings';
+
+	/**
+	 * Cached settings.
+	 *
+	 * @var array|null
+	 */
+	private $settings_cache = null;
+
+	/**
+	 * Constructor.
+	 */
+	private function __construct() {
+		$this->hooks();
+	}
+
+	/**
+	 * Get singleton instance.
+	 *
+	 * @return Auction_Admin_Menu
+	 */
+	public static function instance(): Auction_Admin_Menu {
+		if ( null === self::$instance ) {
+			self::$instance = new self();
+		}
+
+		return self::$instance;
+	}
+
+	/**
+	 * Register hooks.
+	 *
+	 * @return void
+	 */
+	private function hooks(): void {
+		add_action( 'admin_menu', array( $this, 'register_menu' ) );
+	}
+
+	/**
+	 * Register admin menu items.
+	 *
+	 * @return void
+	 */
+	public function register_menu(): void {
+		add_menu_page(
+			__( 'Auctions', 'auction' ),
+			__( 'Auctions', 'auction' ),
+			'manage_woocommerce',
+			'auction-dashboard',
+			array( $this, 'render_dashboard_page' ),
+			'dashicons-hammer',
+			56
+		);
+
+		add_submenu_page(
+			'auction-dashboard',
+			__( 'All Auctions', 'auction' ),
+			__( 'All Auctions', 'auction' ),
+			'manage_woocommerce',
+			'auction-dashboard',
+			array( $this, 'render_dashboard_page' )
+		);
+
+		add_submenu_page(
+			'auction-dashboard',
+			__( 'Settings', 'auction' ),
+			__( 'Settings', 'auction' ),
+			'manage_woocommerce',
+			'auction-settings',
+			array( $this, 'render_settings_page' )
+		);
+	}
+
+	/**
+	 * Render dashboard page.
+	 *
+	 * @return void
+	 */
+	public function render_dashboard_page(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'auction' ) );
+		}
+
+		$products = new WP_Query(
+			array(
+				'post_type'      => 'product',
+				'post_status'    => array( 'publish', 'future', 'draft' ),
+				'posts_per_page' => 50,
+				'meta_query'     => array(
+					array(
+						'key'   => '_auction_enabled',
+						'value' => 'yes',
+					),
+				),
+			)
+		);
+
+		?>
+		<div class="wrap auction-admin-wrap">
+			<h1><?php esc_html_e( 'All Auctions', 'auction' ); ?></h1>
+			<p><?php esc_html_e( 'Below you will find a list of all the auctions created on your site.', 'auction' ); ?></p>
+
+			<p>
+				<a class="button button-primary" href="<?php echo esc_url( admin_url( 'post-new.php?post_type=product' ) ); ?>">
+					<?php esc_html_e( 'Create New Auction Product', 'auction' ); ?>
+				</a>
+			</p>
+
+			<?php if ( $products->have_posts() ) : ?>
+				<table class="widefat striped">
+					<thead>
+						<tr>
+							<th><?php esc_html_e( 'Product', 'auction' ); ?></th>
+							<th><?php esc_html_e( 'Status', 'auction' ); ?></th>
+							<th><?php esc_html_e( 'Start Time', 'auction' ); ?></th>
+							<th><?php esc_html_e( 'End Time', 'auction' ); ?></th>
+							<th><?php esc_html_e( 'Current Bid', 'auction' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php
+						while ( $products->have_posts() ) :
+							$products->the_post();
+							$product = wc_get_product( get_the_ID() );
+
+							if ( ! $product ) {
+								continue;
+							}
+
+							$config = Auction_Product_Helper::get_config( $product );
+							$state  = Auction_Product_Helper::get_runtime_state( $product );
+							$status = Auction_Product_Helper::get_auction_status( $config );
+
+							$start_time = $config['start_timestamp']
+								? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $config['start_timestamp'] )
+								: __( 'Not set', 'auction' );
+							$end_time   = $config['end_timestamp']
+								? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $config['end_timestamp'] )
+								: __( 'Not set', 'auction' );
+							$current_bid = $state['winning_bid_id'] ? $state['current_bid'] : Auction_Product_Helper::get_start_price( $config );
+							?>
+							<tr>
+								<td>
+									<a href="<?php echo esc_url( get_edit_post_link( $product->get_id() ) ); ?>">
+										<?php echo esc_html( $product->get_name() ); ?>
+									</a>
+								</td>
+								<td>
+									<?php
+									switch ( $status ) {
+										case 'scheduled':
+											esc_html_e( 'Scheduled', 'auction' );
+											break;
+										case 'ended':
+											esc_html_e( 'Ended', 'auction' );
+											break;
+										default:
+											esc_html_e( 'Active', 'auction' );
+											break;
+									}
+									?>
+								</td>
+								<td><?php echo esc_html( $start_time ); ?></td>
+								<td><?php echo esc_html( $end_time ); ?></td>
+								<td><?php echo wp_kses_post( wc_price( $current_bid ) ); ?></td>
+							</tr>
+						<?php endwhile; ?>
+					</tbody>
+				</table>
+				<?php wp_reset_postdata(); ?>
+			<?php else : ?>
+				<p><?php esc_html_e( 'No auction products found yet.', 'auction' ); ?></p>
+			<?php endif; ?>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Render settings page.
+	 *
+	 * @return void
+	 */
+	public function render_settings_page(): void {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( 'You do not have permission to access this page.', 'auction' ) );
+		}
+
+		if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['auction_settings_nonce'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			$this->handle_settings_save();
+		}
+
+		$schema   = $this->get_settings_schema();
+		$settings = $this->get_settings();
+
+		settings_errors( 'auction_settings' );
+		?>
+		<div class="wrap auction-admin-wrap">
+			<h1><?php esc_html_e( 'Auction Settings', 'auction' ); ?></h1>
+
+			<form method="post">
+				<?php wp_nonce_field( 'auction_save_settings', 'auction_settings_nonce' ); ?>
+
+				<div class="nav-tab-wrapper">
+					<?php
+					$tab_index = 0;
+					foreach ( $schema as $section_id => $section ) :
+						$active_class = 0 === $tab_index ? ' nav-tab-active' : '';
+						?>
+						<a href="#<?php echo esc_attr( $section_id ); ?>" class="nav-tab<?php echo esc_attr( $active_class ); ?>">
+							<?php echo esc_html( $section['title'] ); ?>
+						</a>
+						<?php
+						$tab_index++;
+					endforeach;
+					?>
+				</div>
+
+				<?php foreach ( $schema as $section_id => $section ) : ?>
+					<div class="auction-admin-card" id="<?php echo esc_attr( $section_id ); ?>">
+						<h2><?php echo esc_html( $section['title'] ); ?></h2>
+						<?php if ( ! empty( $section['description'] ) ) : ?>
+							<p class="description"><?php echo esc_html( $section['description'] ); ?></p>
+						<?php endif; ?>
+
+						<?php if ( empty( $section['fields'] ) ) : ?>
+							<p class="description">
+								<?php esc_html_e( 'This section will be completed in a future update.', 'auction' ); ?>
+							</p>
+						<?php else : ?>
+							<?php foreach ( $section['fields'] as $field_key => $field_config ) : ?>
+								<?php echo $this->render_settings_field( $field_key, $field_config, $settings[ $field_key ] ?? ( $field_config['default'] ?? '' ) ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+							<?php endforeach; ?>
+						<?php endif; ?>
+					</div>
+				<?php endforeach; ?>
+
+				<?php submit_button( __( 'Save Settings', 'auction' ) ); ?>
+			</form>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Handle settings save request.
+	 *
+	 * @return void
+	 */
+	private function handle_settings_save(): void {
+		if ( ! isset( $_POST['auction_settings_nonce'] ) || ! wp_verify_nonce( sanitize_key( $_POST['auction_settings_nonce'] ), 'auction_save_settings' ) ) {
+			wp_die( esc_html__( 'Security check failed.', 'auction' ) );
+		}
+
+		$raw_settings = isset( $_POST['auction_settings'] ) ? wp_unslash( $_POST['auction_settings'] ) : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+
+		if ( ! is_array( $raw_settings ) ) {
+			$raw_settings = array();
+		}
+
+		$sanitized = $this->sanitize_settings( $raw_settings );
+
+		update_option( $this->option_name, $sanitized );
+		$this->settings_cache = $sanitized;
+
+		add_settings_error(
+			'auction_settings',
+			'auction_settings_saved',
+			__( 'Settings saved successfully.', 'auction' ),
+			'updated'
+		);
+	}
+
+	/**
+	 * Render individual settings field.
+	 *
+	 * @param string $field_key Field key.
+	 * @param array  $config    Field configuration.
+	 * @param mixed  $value     Current value.
+	 *
+	 * @return string
+	 */
+	private function render_settings_field( string $field_key, array $config, $value ): string {
+		$id          = 'auction_settings_' . $field_key;
+		$name        = 'auction_settings[' . $field_key . ']';
+		$label       = $config['label'] ?? '';
+		$description = $config['description'] ?? '';
+		$type        = $config['type'] ?? 'text';
+
+		ob_start();
+		?>
+		<div class="auction-setting-field">
+			<?php if ( 'checkbox' === $type ) : ?>
+				<label for="<?php echo esc_attr( $id ); ?>">
+					<input
+						type="checkbox"
+						name="<?php echo esc_attr( $name ); ?>"
+						id="<?php echo esc_attr( $id ); ?>"
+						value="yes"
+						<?php checked( 'yes', $value ); ?>
+					/>
+					<?php echo esc_html( $label ); ?>
+				</label>
+			<?php else : ?>
+				<label for="<?php echo esc_attr( $id ); ?>">
+					<?php echo esc_html( $label ); ?>
+				</label>
+				<div class="auction-setting-control">
+					<?php
+					switch ( $type ) {
+						case 'select':
+							?>
+							<select name="<?php echo esc_attr( $name ); ?>" id="<?php echo esc_attr( $id ); ?>">
+								<?php foreach ( $config['options'] as $option_value => $option_label ) : ?>
+									<option value="<?php echo esc_attr( $option_value ); ?>" <?php selected( $option_value, $value ); ?>>
+										<?php echo esc_html( $option_label ); ?>
+									</option>
+								<?php endforeach; ?>
+							</select>
+							<?php
+							break;
+						case 'radio':
+							foreach ( $config['options'] as $option_value => $option_label ) :
+								?>
+								<label class="auction-radio-option">
+									<input
+										type="radio"
+										name="<?php echo esc_attr( $name ); ?>"
+										value="<?php echo esc_attr( $option_value ); ?>"
+										<?php checked( $option_value, $value ); ?>
+									/>
+									<?php echo esc_html( $option_label ); ?>
+								</label>
+								<?php
+							endforeach;
+							break;
+						case 'number':
+						case 'integer':
+							?>
+							<input
+								type="number"
+								name="<?php echo esc_attr( $name ); ?>"
+								id="<?php echo esc_attr( $id ); ?>"
+								value="<?php echo esc_attr( $value ); ?>"
+								<?php
+								if ( ! empty( $config['attributes'] ) ) {
+									foreach ( $config['attributes'] as $attr_key => $attr_value ) {
+										echo esc_attr( $attr_key ) . '="' . esc_attr( $attr_value ) . '" ';
+									}
+								}
+								?>
+							/>
+							<?php
+							break;
+						case 'textarea':
+							?>
+							<textarea name="<?php echo esc_attr( $name ); ?>" id="<?php echo esc_attr( $id ); ?>" rows="4"><?php echo esc_textarea( $value ); ?></textarea>
+							<?php
+							break;
+						case 'color':
+							?>
+							<input
+								type="text"
+								class="auction-color-field"
+								name="<?php echo esc_attr( $name ); ?>"
+								id="<?php echo esc_attr( $id ); ?>"
+								value="<?php echo esc_attr( $value ); ?>"
+								placeholder="#000000"
+							/>
+							<?php
+							break;
+						default:
+							?>
+							<input
+								type="text"
+								name="<?php echo esc_attr( $name ); ?>"
+								id="<?php echo esc_attr( $id ); ?>"
+								value="<?php echo esc_attr( $value ); ?>"
+							/>
+							<?php
+							break;
+					}
+					?>
+				</div>
+			<?php endif; ?>
+			<?php if ( ! empty( $description ) ) : ?>
+				<p class="description"><?php echo esc_html( $description ); ?></p>
+			<?php endif; ?>
+		</div>
+		<?php
+
+		return ob_get_clean();
+	}
+
+	/**
+	 * Sanitize settings payload.
+	 *
+	 * @param array $input Raw input.
+	 *
+	 * @return array
+	 */
+	private function sanitize_settings( array $input ): array {
+		$schema    = $this->get_settings_schema();
+		$sanitized = $this->get_default_settings();
+
+		foreach ( $schema as $section ) {
+			foreach ( $section['fields'] as $field_key => $field_config ) {
+				$value = $input[ $field_key ] ?? null;
+				$sanitized[ $field_key ] = $this->sanitize_field( $value, $field_config );
+			}
+		}
+
+		return $sanitized;
+	}
+
+	/**
+	 * Sanitize individual field.
+	 *
+	 * @param mixed $value  Field value.
+	 * @param array $config Field configuration.
+	 *
+	 * @return mixed
+	 */
+	private function sanitize_field( $value, array $config ) {
+		$type    = $config['type'] ?? 'text';
+		$default = $config['default'] ?? '';
+
+		switch ( $type ) {
+			case 'checkbox':
+				return ! empty( $value ) && 'yes' === $value ? 'yes' : 'no';
+
+			case 'select':
+			case 'radio':
+				$options = $config['options'] ?? array();
+				$value   = is_string( $value ) ? sanitize_text_field( $value ) : $default;
+				return array_key_exists( $value, $options ) ? $value : $default;
+
+			case 'number':
+				return is_numeric( $value ) ? floatval( $value ) : ( is_numeric( $default ) ? floatval( $default ) : 0 );
+
+			case 'integer':
+				return is_numeric( $value ) ? absint( $value ) : absint( $default );
+
+			case 'textarea':
+				return is_string( $value ) ? sanitize_textarea_field( $value ) : $default;
+
+			case 'color':
+				$value = is_string( $value ) ? sanitize_hex_color( $value ) : '';
+				return $value ? $value : '';
+
+			default:
+				return is_string( $value ) ? sanitize_text_field( $value ) : $default;
+		}
+	}
+
+	/**
+	 * Retrieve settings from database merged with defaults.
+	 *
+	 * @return array
+	 */
+	private function get_settings(): array {
+		if ( null !== $this->settings_cache ) {
+			return $this->settings_cache;
+		}
+
+		$stored = get_option( $this->option_name, array() );
+
+		if ( ! is_array( $stored ) ) {
+			$stored = array();
+		}
+
+		$this->settings_cache = wp_parse_args( $stored, $this->get_default_settings() );
+
+		return $this->settings_cache;
+	}
+
+	/**
+	 * Get default settings.
+	 *
+	 * @return array
+	 */
+	private function get_default_settings(): array {
+		$defaults = array();
+
+		foreach ( $this->get_settings_schema() as $section ) {
+			foreach ( $section['fields'] as $field_key => $field_config ) {
+				$defaults[ $field_key ] = $field_config['default'] ?? ( 'checkbox' === ( $field_config['type'] ?? '' ) ? 'no' : '' );
+			}
+		}
+
+		return $defaults;
+	}
+
+	/**
+	 * Settings schema definition.
+	 *
+	 * @return array
+	 */
+	private function get_settings_schema(): array {
+		return array(
+			'auction_options'      => array(
+				'title'       => __( 'Auction Options', 'auction' ),
+				'description' => __( 'Global settings for all auctions.', 'auction' ),
+				'fields'      => array(
+					'show_on_shop'                  => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Show auctions on the shop page', 'auction' ),
+						'description' => __( 'Enable to show auction products in the shop page. If disabled, all auctions will be shown only in the page with the auction shortcode.', 'auction' ),
+						'default'     => 'yes',
+					),
+					'hide_out_of_stock'             => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Hide out-of-stock auctions', 'auction' ),
+						'description' => __( 'Enable to hide out-of-stock auctions in the shop pages.', 'auction' ),
+					),
+					'hide_ended'                    => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Hide ended auctions', 'auction' ),
+						'description' => __( 'Enable to hide ended auctions in the shop page.', 'auction' ),
+					),
+					'hide_future'                   => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Hide future auctions', 'auction' ),
+						'description' => __( 'Enable to hide auctions, that have not yet started, in the shop page.', 'auction' ),
+					),
+					'show_countdown_loop'           => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Show countdown in product loop', 'auction' ),
+						'description' => __( 'Enable to show auction countdown or end time also in the shop pages.', 'auction' ),
+					),
+					'hide_buy_now_over_bid'         => array(
+						'type'        => 'checkbox',
+						'label'       => __( "Hide 'Buy Now' when bid exceeds price", 'auction' ),
+						'description' => __( "Enable to hide the 'Buy Now' button when a user bids an amount that exceeds the 'Buy Now' price.", 'auction' ),
+					),
+					'hide_buy_now_after_first_bid'  => array(
+						'type'        => 'checkbox',
+						'label'       => __( "Hide 'Buy Now' after first bid", 'auction' ),
+						'description' => __( "Enable to hide the 'Buy Now' button when a user places the first bid.", 'auction' ),
+					),
+					'bid_type'                      => array(
+						'type'        => 'select',
+						'label'       => __( 'Set bid type', 'auction' ),
+						'description' => __( 'Choose how automatic bidding works for your auctions.', 'auction' ),
+						'options'     => array(
+							'automatic' => __( 'Automatic bidding', 'auction' ),
+							'simple'    => __( 'Simple bidding', 'auction' ),
+						),
+						'default'     => 'automatic',
+					),
+					'show_bid_increments'           => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Show bid increments info', 'auction' ),
+						'description' => __( 'Enable to show the automatic bid increment info on the page.', 'auction' ),
+					),
+					'bid_approval_modal'            => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Ask for approval before bid', 'auction' ),
+						'description' => __( 'If enabled, bidders will see a confirmation modal before their bid is published.', 'auction' ),
+					),
+					'fee_before_bidding'            => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Ask fee payment before bidding', 'auction' ),
+						'description' => __( 'Enable to ask users to pay a fee before placing a bid.', 'auction' ),
+					),
+					'enable_overtime'               => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Set overtime', 'auction' ),
+						'description' => __( 'Enable to extend the auction duration if someone places a bid when the auction is about to end.', 'auction' ),
+					),
+					'show_highest_bidder_modal'     => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Show higher bidder modal', 'auction' ),
+						'description' => __( 'Enable to show a modal to the highest bidder suggesting to refresh the page.', 'auction' ),
+					),
+					'enable_watchlist'              => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Enable watchlist', 'auction' ),
+						'description' => __( 'Allow logged-in users to create a watchlist with auctions they are interested in.', 'auction' ),
+					),
+					'allow_followers'               => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Allow users to follow auctions', 'auction' ),
+						'description' => __( 'If enabled, users can receive a notification when an auction is about to end.', 'auction' ),
+					),
+					'email_new_bid'                 => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Email bidders on new bid', 'auction' ),
+						'description' => __( 'Send an email to bidders to notify any new bid.', 'auction' ),
+					),
+					'email_ending'                  => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Email when auction about to end', 'auction' ),
+						'description' => __( 'Send an email to bidders and followers when the auction is about to end.', 'auction' ),
+					),
+					'email_lost'                    => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Email when bidder loses', 'auction' ),
+						'description' => __( 'Send an email when bidders lose the auction.', 'auction' ),
+					),
+					'email_buy_now_closed'          => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Email when closed by Buy Now', 'auction' ),
+						'description' => __( 'Send an email when the auction is closed by a Buy Now purchase.', 'auction' ),
+					),
+					'notify_ending_days'            => array(
+						'type'        => 'integer',
+						'label'       => __( 'Notify ending auctions before (days)', 'auction' ),
+						'description' => __( 'Set when to send the email to notify bidders and followers that the auction is about to end.', 'auction' ),
+						'default'     => 1,
+						'attributes'  => array(
+							'min' => '0',
+						),
+					),
+					'show_unsubscribe_link'         => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Show unsubscribe link in emails', 'auction' ),
+						'description' => __( 'Enable to add an unsubscribe link in email notifications for bidders and followers.', 'auction' ),
+					),
+					'unsubscribe_label'             => array(
+						'type'        => 'text',
+						'label'       => __( 'Unsubscribe link label', 'auction' ),
+						'description' => __( 'Set the label for the unsubscribe link in email notifications.', 'auction' ),
+						'default'     => __( 'Unsubscribe', 'auction' ),
+					),
+					'auto_refresh_page'             => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Automatically refresh auction page', 'auction' ),
+						'description' => __( 'Enable to automatically refresh the auction page via Ajax.', 'auction' ),
+					),
+					'auto_refresh_my_account'       => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Automatically refresh My Account > My auctions', 'auction' ),
+						'description' => __( 'Enable to automatically refresh the "My auctions" section via Ajax.', 'auction' ),
+					),
+					'show_login_modal'              => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Show login/register modal', 'auction' ),
+						'description' => __( 'Allow users to login or register directly from the auction page.', 'auction' ),
+					),
+				),
+			),
+			'auctions_payments'   => array(
+				'title'       => __( 'Auctions Payments', 'auction' ),
+				'description' => __( 'Options related to the management and payment of won auctions. (Coming soon)', 'auction' ),
+				'fields'      => array(),
+			),
+			'auctions_reschedule' => array(
+				'title'       => __( 'Auctions Rescheduling', 'auction' ),
+				'description' => __( 'Set the general conditions to reschedule auctions.', 'auction' ),
+				'fields'      => array(
+					'reschedule_without_bids'        => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Reschedule ended auctions without bids', 'auction' ),
+						'description' => __( 'Enable to automatically reschedule ended auctions without a bid.', 'auction' ),
+					),
+					'reschedule_reserve_not_met'     => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Reschedule reserve-not-met auctions', 'auction' ),
+						'description' => __( 'Enable to automatically reschedule ended auctions if the reserve price was not reached.', 'auction' ),
+					),
+					'reschedule_length'              => array(
+						'type'        => 'text',
+						'label'       => __( 'Reschedule duration', 'auction' ),
+						'description' => __( 'Set the length of time for which the auction will run again (e.g. "3 days").', 'auction' ),
+					),
+					'manage_unpaid'                  => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Manage unpaid auctions', 'auction' ),
+						'description' => __( 'Enable to choose how to manage unpaid auctions (reschedule, contact the 2nd highest bidder, etc.).', 'auction' ),
+					),
+					'unpaid_action'                  => array(
+						'type'        => 'select',
+						'label'       => __( 'Unpaid auctions options', 'auction' ),
+						'description' => __( 'Set how to manage unpaid auctions.', 'auction' ),
+						'options'     => array(
+							'reschedule'            => __( 'Reschedule the auction', 'auction' ),
+							'contact_second_bidder' => __( 'Contact the 2nd highest bidder', 'auction' ),
+							'nothing'               => __( 'Do nothing', 'auction' ),
+						),
+						'default'     => 'reschedule',
+					),
+					'unpaid_threshold_value'         => array(
+						'type'        => 'integer',
+						'label'       => __( 'Unpaid threshold value', 'auction' ),
+						'description' => __( 'If winning bidder does not pay within this time, trigger the unpaid action.', 'auction' ),
+						'default'     => 20,
+						'attributes'  => array(
+							'min' => '0',
+						),
+					),
+					'unpaid_threshold_unit'          => array(
+						'type'        => 'select',
+						'label'       => __( 'Unpaid threshold unit', 'auction' ),
+						'description' => __( 'Choose the time unit for the unpaid threshold.', 'auction' ),
+						'options'     => array(
+							'minutes' => __( 'Minutes', 'auction' ),
+							'hours'   => __( 'Hours', 'auction' ),
+							'days'    => __( 'Days', 'auction' ),
+						),
+						'default'     => 'minutes',
+					),
+					'unpaid_reschedule_length'       => array(
+						'type'        => 'text',
+						'label'       => __( 'Unpaid reschedule duration', 'auction' ),
+						'description' => __( 'Set the length of time for which the auction will run again if rescheduled.', 'auction' ),
+					),
+					'notify_admin_rescheduled'       => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Send email to admin when rescheduled', 'auction' ),
+						'description' => __( 'Enable to notify admin by email when an auction is automatically rescheduled.', 'auction' ),
+					),
+				),
+			),
+			'auction_page'        => array(
+				'title'       => __( 'Auction Page', 'auction' ),
+				'description' => __( 'Customization options for the auction product page.', 'auction' ),
+				'fields'      => array(
+					'show_badge_product'      => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Show auction badge on product image', 'auction' ),
+						'description' => __( 'Enable to show the auction badge in the auction product page.', 'auction' ),
+					),
+					'show_items_condition'    => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Show items condition', 'auction' ),
+						'description' => __( 'Enable to show the item condition.', 'auction' ),
+					),
+					'show_product_stock'      => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Show product stock', 'auction' ),
+						'description' => __( 'Enable to show the product stock.', 'auction' ),
+					),
+					'show_reserve_reached'    => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Show reserve price notice', 'auction' ),
+						'description' => __( 'Enable to show a notice if the reserve price has been reached.', 'auction' ),
+					),
+					'show_overtime_notice'    => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Show overtime notice', 'auction' ),
+						'description' => __( 'Enable to show a notice if the auction is in overtime.', 'auction' ),
+					),
+					'bid_quantity_buttons'    => array(
+						'type'        => 'select',
+						'label'       => __( 'Quantity buttons in bid amount fields', 'auction' ),
+						'description' => __( 'Choose to show or hide the buttons to increase or decrease the bid input.', 'auction' ),
+						'options'     => array(
+							'hide'   => __( 'Hide quantity buttons', 'auction' ),
+							'theme'  => __( 'Use theme style buttons', 'auction' ),
+							'plugin' => __( 'Use plugin style buttons', 'auction' ),
+						),
+						'default'     => 'theme',
+					),
+					'show_next_bid_amount'    => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Show next available amount', 'auction' ),
+						'description' => __( 'Enable to show the suggested bid (current bid + minimal increment) in the bid input field.', 'auction' ),
+					),
+					'bid_username_display'    => array(
+						'type'        => 'select',
+						'label'       => __( 'In bid tab show', 'auction' ),
+						'description' => __( 'Choose whether to show the full username of bidders or only the first and last letters.', 'auction' ),
+						'options'     => array(
+							'full'   => __( 'Full username', 'auction' ),
+							'masked' => __( 'Only first and last letter (A****E)', 'auction' ),
+						),
+						'default'     => 'masked',
+					),
+					'show_end_reason'         => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Show how the auction has ended', 'auction' ),
+						'description' => __( 'If enabled, the reason why the auction has ended will be shown on the auction page.', 'auction' ),
+					),
+					'suggest_other_auctions'  => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Suggest other auctions', 'auction' ),
+						'description' => __( 'Enable to suggest other auctions to customers that open an ended auction product page.', 'auction' ),
+					),
+					'suggest_filter'          => array(
+						'type'        => 'select',
+						'label'       => __( 'Suggest active auctions', 'auction' ),
+						'description' => __( 'Choose to suggest auctions of the same category or all categories.', 'auction' ),
+						'options'     => array(
+							'same_category'  => __( 'Of same category', 'auction' ),
+							'all_categories' => __( 'Of all categories', 'auction' ),
+						),
+						'default'     => 'same_category',
+					),
+					'suggest_limit'           => array(
+						'type'        => 'integer',
+						'label'       => __( 'Auctions to suggest', 'auction' ),
+						'description' => __( 'Set how many auctions to suggest.', 'auction' ),
+						'default'     => 3,
+						'attributes'  => array(
+							'min' => '0',
+						),
+					),
+				),
+			),
+			'customization'       => array(
+				'title'       => __( 'Customization', 'auction' ),
+				'description' => __( 'Display and countdown customization.', 'auction' ),
+				'fields'      => array(
+					'custom_badge_enable'            => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Show auction badge', 'auction' ),
+						'description' => __( 'Enable to show a badge to identify auction products.', 'auction' ),
+					),
+					'custom_badge_asset'             => array(
+						'type'        => 'text',
+						'label'       => __( 'Badge image URL', 'auction' ),
+						'description' => __( 'Upload or paste the URL of the graphic badge used to identify auctions.', 'auction' ),
+					),
+					'show_end_date_on_product'       => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Show end date on product page', 'auction' ),
+						'description' => __( 'Enable to show the end date of auctions on the product page.', 'auction' ),
+					),
+					'timezone'                       => array(
+						'type'        => 'text',
+						'label'       => __( 'Time zone', 'auction' ),
+						'description' => __( 'Enter an optional time zone code to show with the auction end date.', 'auction' ),
+					),
+					'date_format'                    => array(
+						'type'        => 'text',
+						'label'       => __( 'Date format', 'auction' ),
+						'description' => __( 'Set date format for the countdown.', 'auction' ),
+						'default'     => 'Y-m-d',
+					),
+					'time_format'                    => array(
+						'type'        => 'text',
+						'label'       => __( 'Time format', 'auction' ),
+						'description' => __( 'Set time format for the countdown.', 'auction' ),
+						'default'     => 'H:i',
+					),
+					'show_countdown'                 => array(
+						'type'        => 'checkbox',
+						'label'       => __( 'Show countdown', 'auction' ),
+						'description' => __( 'Enable to show the countdown.', 'auction' ),
+					),
+					'countdown_style'                => array(
+						'type'        => 'select',
+						'label'       => __( 'Countdown style', 'auction' ),
+						'description' => __( 'Choose a countdown style.', 'auction' ),
+						'options'     => array(
+							'default' => __( 'Default', 'auction' ),
+							'compact' => __( 'Compact', 'auction' ),
+							'boxed'   => __( 'Boxed', 'auction' ),
+						),
+						'default'     => 'default',
+					),
+					'countdown_color_text'           => array(
+						'type'        => 'color',
+						'label'       => __( 'Countdown text color', 'auction' ),
+						'description' => __( 'Set the countdown text color.', 'auction' ),
+					),
+					'countdown_color_section_bg'     => array(
+						'type'        => 'color',
+						'label'       => __( 'Countdown section background', 'auction' ),
+						'description' => __( 'Set the countdown section background color.', 'auction' ),
+					),
+					'countdown_color_blocks_bg'      => array(
+						'type'        => 'color',
+						'label'       => __( 'Countdown blocks background', 'auction' ),
+						'description' => __( 'Set the countdown blocks background color.', 'auction' ),
+					),
+					'countdown_color_ending_text'    => array(
+						'type'        => 'color',
+						'label'       => __( 'Ending soon countdown text color', 'auction' ),
+						'description' => __( 'Change countdown text color if the auction is near the end.', 'auction' ),
+					),
+					'countdown_ending_threshold'     => array(
+						'type'        => 'integer',
+						'label'       => __( 'Ending soon threshold (hours)', 'auction' ),
+						'description' => __( 'Set the number of hours before ending to apply the ending soon color.', 'auction' ),
+						'default'     => 24,
+						'attributes'  => array(
+							'min' => '0',
+						),
+					),
+				),
+			),
+		);
+	}
+}
+
+Auction_Admin_Menu::instance();
+

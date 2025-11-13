@@ -1,0 +1,50 @@
+.auction-admin-wrap {
+	max-width: 1200px;
+}
+
+.auction-admin-card {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	padding: 20px;
+	margin-bottom: 20px;
+	border-radius: 4px;
+}
+
+.auction-admin-card h2 {
+	margin-top: 0;
+}
+
+.auction-setting-field {
+	margin-bottom: 20px;
+}
+
+.auction-setting-field > label {
+	font-weight: 600;
+	display: block;
+}
+
+.auction-setting-field .auction-setting-control {
+	margin-top: 6px;
+}
+
+.auction-setting-field input[type="text"],
+.auction-setting-field input[type="number"],
+.auction-setting-field textarea,
+.auction-setting-field select {
+	min-width: 260px;
+}
+
+.auction-setting-field textarea {
+	width: 100%;
+	max-width: 600px;
+}
+
+.auction-setting-field input[type="checkbox"] {
+	margin-right: 8px;
+}
+
+.auction-radio-option {
+	display: block;
+	margin-bottom: 6px;
+}
+
