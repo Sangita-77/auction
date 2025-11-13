@@ -450,9 +450,10 @@ class Auction_Frontend {
 			return;
 		}
 	
-		$config = Auction_Product_Helper::get_config( $product );
-		$status = Auction_Product_Helper::get_auction_status( $config );
-		$end_timestamp = $config['end_timestamp'] ?: 0;
+		$config          = Auction_Product_Helper::get_config( $product );
+		$status          = Auction_Product_Helper::get_auction_status( $config );
+		$start_timestamp = $config['start_timestamp'] ?: 0;
+		$end_timestamp   = $config['end_timestamp'] ?: 0;
 	
 		echo '<div class="auction-loop-meta" data-auction-product="' . esc_attr( $product->get_id() ) . '" data-auction-status="' . esc_attr( $status ) . '" ' . ($end_timestamp ? 'data-auction-end="' . esc_attr( $end_timestamp) . '"' : '') . '>';
 	
@@ -469,8 +470,10 @@ class Auction_Frontend {
 		}
 	
 		// Countdown
+		$start_attr = $start_timestamp ? ' data-countdown-start="' . esc_attr( $start_timestamp ) . '"' : '';
+
 		if ( $end_timestamp && Auction_Settings::is_enabled( 'show_countdown_loop' ) ) {
-			echo '<span class="auction-countdown" data-countdown-target="' . esc_attr( $end_timestamp ) . '"></span>';
+			echo '<span class="auction-countdown" data-countdown-target="' . esc_attr( $end_timestamp ) . '"' . $start_attr . '></span>';
 		}
 	
 		// Current bid
@@ -482,7 +485,7 @@ class Auction_Frontend {
 		echo '<div class="auction-loop-info">';
 		if ( $end_timestamp ) {
 			echo '<span class="auction-end">Auction ends: <strong>' . date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $end_timestamp ) . '</strong></span><br>';
-			echo '<span class="auction-countdown" data-countdown-target="' . esc_attr( $end_timestamp ) . '"></span>';
+			echo '<span class="auction-countdown" data-countdown-target="' . esc_attr( $end_timestamp ) . '"' . $start_attr . '></span>';
 		}
 
 		// if ( $end_timestamp ) {
