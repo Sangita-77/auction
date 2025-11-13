@@ -395,3 +395,15 @@ Stack trace:
 			 ORDER BY bid_amount DESC, created_at ASC
 			 LIMIT 1 made by require('wp-blog-header.php'), require_once('wp-includes/template-loader.php'), include('wp-includes/template-canvas.php'), get_the_block_template_html, do_blocks, render_block, WP_Block->render, WP_Block->render, WP_Block->render, WP_Block->render, WP_Block->render, apply_filters('render_block'), WP_Hook->apply_filters, Automattic\WooCommerce\Blocks\Templates\AbstractTemplateCompatibility->Automattic\WooCommerce\Blocks\Templates\{closure}, Automattic\WooCommerce\Blocks\Templates\SingleProductTemplateCompatibility->inject_hooks, Automattic\WooCommerce\Blocks\Templates\AbstractTemplateCompatibility->get_hooks_buffer, do_action('woocommerce_single_product_summary'), WP_Hook->do_action, WP_Hook->apply_filters, Auction_Frontend->render_single_product_auction_panel, Auction_Bid_Manager::get_leading_bid
 [13-Nov-2025 08:41:30 UTC] WordPress database error Table 'auction.wp_auction_bids' doesn't exist for query SHOW FULL COLUMNS FROM `wp_auction_bids` made by do_action('wp_ajax_nopriv_auction_place_bid'), WP_Hook->do_action, WP_Hook->apply_filters, Auction_Frontend->ajax_place_bid, Auction_Bid_Manager::place_bid, Auction_Bid_Manager::insert_bid
+[13-Nov-2025 11:25:43 UTC] PHP Fatal error:  Uncaught Error: Call to undefined method Auction_Product_Tabs::format_bidder_name() in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php:116
+Stack trace:
+#0 F:\SANGITA\xampp\htdocs\auction\wp-includes\class-wp-hook.php(324): Auction_Product_Tabs->render_product_panel('')
+#1 F:\SANGITA\xampp\htdocs\auction\wp-includes\class-wp-hook.php(348): WP_Hook->apply_filters('', Array)
+#2 F:\SANGITA\xampp\htdocs\auction\wp-includes\plugin.php(517): WP_Hook->do_action(Array)
+#3 F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\woocommerce\includes\admin\meta-boxes\views\html-product-data-panel.php(54): do_action('woocommerce_pro...')
+#4 F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\woocommerce\includes\admin\meta-boxes\class-wc-meta-box-product-data.php(37): include('F:\\SANGITA\\xamp...')
+#5 F:\SANGITA\xampp\htdocs\auction\wp-admin\includes\template.php(1456): WC_Meta_Box_Product_Data::output(Object(WP_Post), Array)
+#6 F:\SANGITA\xampp\htdocs\auction\wp-admin\edit-form-advanced.php(721): do_meta_boxes(Object(WP_Screen), 'normal', Object(WP_Post))
+#7 F:\SANGITA\xampp\htdocs\auction\wp-admin\post.php(206): require('F:\\SANGITA\\xamp...')
+#8 {main}
+  thrown in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 116

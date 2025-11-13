@@ -141,11 +141,14 @@ class Auction_Admin_Menu {
 							<th><?php esc_html_e( 'Start Time', 'auction' ); ?></th>
 							<th><?php esc_html_e( 'End Time', 'auction' ); ?></th>
 							<th><?php esc_html_e( 'Current Bid', 'auction' ); ?></th>
+							<th><?php esc_html_e( 'Latest Bidder', 'auction' ); ?></th>
+							<th><?php esc_html_e( 'Latest Bid Amount', 'auction' ); ?></th>
+							<th><?php esc_html_e( 'Latest Bid Time', 'auction' ); ?></th>
 						</tr>
 					</thead>
 					<tbody>
 						<?php
-						while ( $products->have_posts() ) :
+			while ( $products->have_posts() ) :
 							$products->the_post();
 							$product = wc_get_product( get_the_ID() );
 
@@ -154,16 +157,36 @@ class Auction_Admin_Menu {
 							}
 
 							$config = Auction_Product_Helper::get_config( $product );
-							$state  = Auction_Product_Helper::get_runtime_state( $product );
-							$status = Auction_Product_Helper::get_auction_status( $config );
+				$state       = Auction_Product_Helper::get_runtime_state( $product );
+				$status      = Auction_Product_Helper::get_auction_status( $config );
+				$latest_bid  = Auction_Bid_Manager::get_leading_bid( $product->get_id() );
+				$latest_name = __( '—', 'auction' );
+				$latest_amount = '';
+				$latest_time = '';
 
-							$start_time = $config['start_timestamp']
-								? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $config['start_timestamp'] )
-								: __( 'Not set', 'auction' );
-							$end_time   = $config['end_timestamp']
-								? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $config['end_timestamp'] )
-								: __( 'Not set', 'auction' );
-							$current_bid = $state['winning_bid_id'] ? $state['current_bid'] : Auction_Product_Helper::get_start_price( $config );
+				if ( $latest_bid ) {
+					$latest_name  = $this->format_bidder_name_admin( $latest_bid, $config );
+					$latest_amount = wc_price( Auction_Product_Helper::to_float( $latest_bid['bid_amount'] ?? 0 ) );
+					if ( ! empty( $latest_bid['created_at'] ) ) {
+						$latest_time = wp_date(
+							get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
+							strtotime( $latest_bid['created_at'] )
+						);
+					} else {
+						$latest_time = __( 'N/A', 'auction' );
+					}
+				} else {
+					$latest_amount = __( 'N/A', 'auction' );
+					$latest_time   = __( 'N/A', 'auction' );
+				}
+
+				$start_time = $config['start_timestamp']
+					? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $config['start_timestamp'] )
+					: __( 'Not set', 'auction' );
+				$end_time   = $config['end_timestamp']
+					? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $config['end_timestamp'] )
+					: __( 'Not set', 'auction' );
+				$current_bid = $state['winning_bid_id'] ? $state['current_bid'] : Auction_Product_Helper::get_start_price( $config );
 							?>
 							<tr>
 								<td>
@@ -189,6 +212,9 @@ class Auction_Admin_Menu {
 								<td><?php echo esc_html( $start_time ); ?></td>
 								<td><?php echo esc_html( $end_time ); ?></td>
 								<td><?php echo wp_kses_post( wc_price( $current_bid ) ); ?></td>
+								<td><?php echo esc_html( $latest_name ); ?></td>
+								<td><?php echo wp_kses_post( $latest_amount ); ?></td>
+								<td><?php echo esc_html( $latest_time ); ?></td>
 							</tr>
 						<?php endwhile; ?>
 					</tbody>
@@ -435,6 +461,40 @@ class Auction_Admin_Menu {
 		}
 
 		return $sanitized;
+	}
+
+	/**
+	 * Format bidder name for admin list.
+	 *
+	 * @param array $record Bid record.
+	 * @param array $config Auction configuration.
+	 *
+	 * @return string
+	 */
+	private function format_bidder_name_admin( array $record, array $config ): string {
+		if ( 'yes' === ( $config['sealed'] ?? 'no' ) ) {
+			return __( 'Hidden (sealed auction)', 'auction' );
+		}
+
+		if ( ! empty( $record['user_id'] ) ) {
+			$user = get_user_by( 'id', absint( $record['user_id'] ) );
+			if ( $user ) {
+				$display_type = Auction_Settings::get( 'bid_username_display', 'masked' );
+				$name         = $user->display_name ?: $user->user_login;
+
+				if ( 'full' === $display_type ) {
+					return $name;
+				}
+
+				return mb_substr( $name, 0, 1 ) . '****' . mb_substr( $name, -1 );
+			}
+		}
+
+		if ( ! empty( $record['session_id'] ) ) {
+			return __( 'Guest bidder', 'auction' );
+		}
+
+		return __( 'Unknown bidder', 'auction' );
 	}
 
 	/**

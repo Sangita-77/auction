@@ -196,17 +196,18 @@ class Auction_Frontend {
 			'auction-frontend',
 			'AuctionFrontendConfig',
 			array(
-				'ajax_url'     => admin_url( 'admin-ajax.php' ),
-				'nonce'        => wp_create_nonce( 'auction_bid_nonce' ),
-				'session_id'   => $this->get_or_set_session_id(),
-				'currency'     => array(
+				'ajax_url'       => admin_url( 'admin-ajax.php' ),
+				'nonce'          => wp_create_nonce( 'auction_bid_nonce' ),
+				'session_id'     => $this->get_or_set_session_id(),
+				'register_form'  => wp_kses_post( $this->get_registration_form_markup( array(), false ) ),
+				'currency'       => array(
 					'symbol'             => get_woocommerce_currency_symbol(),
 					'position'           => get_option( 'woocommerce_currency_pos', 'left' ),
 					'decimals'           => wc_get_price_decimals(),
 					'decimal_separator'  => wc_get_price_decimal_separator(),
 					'thousand_separator' => wc_get_price_thousand_separator(),
 				),
-				'i18n'         => array(
+				'i18n'           => array(
 					'bid_submitted'   => __( 'Bid submitted successfully!', 'auction' ),
 					'bid_outbid'      => __( 'Your bid was submitted but you have already been outbid.', 'auction' ),
 					'error_generic'   => __( 'An error occurred. Please try again.', 'auction' ),
@@ -250,6 +251,29 @@ class Auction_Frontend {
 		$next_bid         = $state['winning_bid_id'] ? $current_bid + $manual_increment : max( $current_bid, $manual_increment );
 
 		$leading_bid = Auction_Bid_Manager::get_leading_bid( $product->get_id() );
+		$latest_bid  = $leading_bid ?: null;
+		if ( $latest_bid ) {
+			$latest_bid['display_name']   = $this->format_bidder_name( $latest_bid, $config );
+			$latest_bid['display_amount'] = Auction_Product_Helper::to_float( $latest_bid['bid_amount'] ?? 0 );
+			$latest_bid['display_time']   = ! empty( $latest_bid['created_at'] )
+				? wp_date(
+					get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
+					strtotime( $latest_bid['created_at'] )
+				)
+				: '';
+		}
+		$bid_history = Auction_Bid_Manager::get_bid_history( $product->get_id(), 10, true );
+		$bid_history = array_map(
+			function ( $item ) use ( $config ) {
+				return array(
+					'name'   => $this->format_bidder_name( $item, $config ),
+					'amount' => Auction_Product_Helper::to_float( $item['bid_amount'] ?? 0 ),
+					'time'   => $item['created_at'] ?? '',
+					'status' => $item['status'] ?? '',
+				);
+			},
+			$bid_history
+		);
 
 		$user_id       = get_current_user_id();
 		$watchlist     = $this->get_watchlist_ids( $user_id );
@@ -266,6 +290,8 @@ class Auction_Frontend {
 				'next_bid'         => $next_bid,
 				'manual_increment' => $manual_increment,
 				'leading_bid'      => $leading_bid,
+				'latest_bid'       => $latest_bid,
+				'bid_history'      => $bid_history,
 				'is_watchlisted'   => $is_watchlisted,
 				'watchlist_nonce'  => wp_create_nonce( 'auction_watchlist_nonce' ),
 				'login_page_url'   => $login_page_url,
@@ -642,45 +668,13 @@ class Auction_Frontend {
 			return '<p>' . esc_html__( 'You are already logged in.', 'auction' ) . '</p>';
 		}
 
-		ob_start();
+		$values = array(
+			'first_name' => isset( $_POST['auction_first_name'] ) ? sanitize_text_field( wp_unslash( $_POST['auction_first_name'] ) ) : '',
+			'last_name'  => isset( $_POST['auction_last_name'] ) ? sanitize_text_field( wp_unslash( $_POST['auction_last_name'] ) ) : '',
+			'email'      => isset( $_POST['auction_email'] ) ? sanitize_email( wp_unslash( $_POST['auction_email'] ) ) : '',
+		);
 
-		wc_print_notices();
-
-		$first_name = isset( $_POST['auction_first_name'] ) ? sanitize_text_field( wp_unslash( $_POST['auction_first_name'] ) ) : '';
-		$last_name  = isset( $_POST['auction_last_name'] ) ? sanitize_text_field( wp_unslash( $_POST['auction_last_name'] ) ) : '';
-		$email      = isset( $_POST['auction_email'] ) ? sanitize_email( wp_unslash( $_POST['auction_email'] ) ) : '';
-
-		?>
-		<form method="post" class="auction-registration-form">
-			<?php wp_nonce_field( 'auction_register_user', 'auction_register_nonce' ); ?>
-			<p class="form-row">
-				<label for="auction_first_name"><?php esc_html_e( 'First name', 'auction' ); ?> <span class="required">*</span></label>
-				<input type="text" id="auction_first_name" name="auction_first_name" value="<?php echo esc_attr( $first_name ); ?>" required />
-			</p>
-			<p class="form-row">
-				<label for="auction_last_name"><?php esc_html_e( 'Last name', 'auction' ); ?> <span class="required">*</span></label>
-				<input type="text" id="auction_last_name" name="auction_last_name" value="<?php echo esc_attr( $last_name ); ?>" required />
-			</p>
-			<p class="form-row">
-				<label for="auction_email"><?php esc_html_e( 'Email address', 'auction' ); ?> <span class="required">*</span></label>
-				<input type="email" id="auction_email" name="auction_email" value="<?php echo esc_attr( $email ); ?>" required />
-			</p>
-			<p class="form-row">
-				<label for="auction_password"><?php esc_html_e( 'Password', 'auction' ); ?> <span class="required">*</span></label>
-				<input type="password" id="auction_password" name="auction_password" required />
-			</p>
-			<p class="form-row">
-				<label for="auction_confirm_password"><?php esc_html_e( 'Confirm password', 'auction' ); ?> <span class="required">*</span></label>
-				<input type="password" id="auction_confirm_password" name="auction_confirm_password" required />
-			</p>
-
-			<p class="form-row">
-				<button type="submit" class="button"><?php esc_html_e( 'Register', 'auction' ); ?></button>
-			</p>
-		</form>
-		<?php
-
-		return ob_get_clean();
+		return $this->get_registration_form_markup( $values, true );
 	}
 
 	/**
@@ -737,6 +731,96 @@ class Auction_Frontend {
 		$myaccount = wc_get_page_permalink( 'myaccount' );
 
 		return $myaccount ? add_query_arg( 'register', '1', $myaccount ) : home_url( '/' );
+	}
+
+	/**
+	 * Format bidder name for display.
+	 *
+	 * @param array $record Bid record.
+	 * @param array $config Auction config.
+	 *
+	 * @return string
+	 */
+	private function format_bidder_name( array $record, array $config ): string {
+		if ( ! empty( $config['sealed'] ) && 'yes' === $config['sealed'] ) {
+			return __( 'Hidden (sealed auction)', 'auction' );
+		}
+
+		if ( ! empty( $record['user_id'] ) ) {
+			$user = get_user_by( 'id', absint( $record['user_id'] ) );
+			if ( $user ) {
+				$display_type = Auction_Settings::get( 'bid_username_display', 'masked' );
+				$name         = $user->display_name ?: $user->user_login;
+
+				if ( 'full' === $display_type ) {
+					return $name;
+				}
+
+				return mb_substr( $name, 0, 1 ) . '****' . mb_substr( $name, -1 );
+			}
+		}
+
+		if ( ! empty( $record['session_id'] ) ) {
+			return __( 'Guest bidder', 'auction' );
+		}
+
+		return __( 'Unknown bidder', 'auction' );
+	}
+
+	/**
+	 * Build registration form HTML.
+	 *
+	 * @param array $values           Prefilled values.
+	 * @param bool  $include_notices  Whether to render notices.
+	 *
+	 * @return string
+	 */
+	private function get_registration_form_markup( array $values = array(), bool $include_notices = true ): string {
+		$values = wp_parse_args(
+			$values,
+			array(
+				'first_name' => '',
+				'last_name'  => '',
+				'email'      => '',
+			)
+		);
+
+		ob_start();
+
+		if ( $include_notices ) {
+			wc_print_notices();
+		}
+		?>
+		<form method="post" class="auction-registration-form">
+			<?php wp_nonce_field( 'auction_register_user', 'auction_register_nonce' ); ?>
+			<p class="form-row">
+				<label for="auction_first_name"><?php esc_html_e( 'First name', 'auction' ); ?> <span class="required">*</span></label>
+				<input type="text" id="auction_first_name" name="auction_first_name" value="<?php echo esc_attr( $values['first_name'] ); ?>" required />
+			</p>
+			<p class="form-row">
+				<label for="auction_last_name"><?php esc_html_e( 'Last name', 'auction' ); ?> <span class="required">*</span></label>
+				<input type="text" id="auction_last_name" name="auction_last_name" value="<?php echo esc_attr( $values['last_name'] ); ?>" required />
+			</p>
+			<p class="form-row">
+				<label for="auction_email"><?php esc_html_e( 'Email address', 'auction' ); ?> <span class="required">*</span></label>
+				<input type="email" id="auction_email" name="auction_email" value="<?php echo esc_attr( $values['email'] ); ?>" required />
+			</p>
+			<p class="form-row">
+				<label for="auction_password"><?php esc_html_e( 'Password', 'auction' ); ?> <span class="required">*</span></label>
+				<input type="password" id="auction_password" name="auction_password" required />
+			</p>
+			<p class="form-row">
+				<label for="auction_confirm_password"><?php esc_html_e( 'Confirm password', 'auction' ); ?> <span class="required">*</span></label>
+				<input type="password" id="auction_confirm_password" name="auction_confirm_password" required />
+			</p>
+
+			<p class="form-row">
+				<button type="submit" class="button"><?php esc_html_e( 'Register', 'auction' ); ?></button>
+			</p>
+		</form>
+		<?php
+
+		return ob_get_clean();
 	}
 }
 

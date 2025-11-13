@@ -88,6 +88,18 @@
 	margin-bottom: 8px;
 }
 
+.auction-open-bid-panel {
+	margin-top: 16px;
+}
+
+.auction-bid-panel {
+	margin-top: 16px;
+	padding: 20px;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	background: #fff;
+}
+
 .auction-registration-form {
 	max-width: 420px;
 	margin: 20px 0;
@@ -226,5 +238,25 @@
 	font-size: 24px;
 	line-height: 1;
 	cursor: pointer;
+}
+
+.auction-bid-history {
+	margin-top: 30px;
+}
+
+.auction-bid-history__table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.auction-bid-history__table th,
+.auction-bid-history__table td {
+	border: 1px solid #dcdcde;
+	padding: 10px;
+	text-align: left;
+}
+
+.auction-bid-history__table tbody tr:nth-child(even) {
+	background: #f9f9f9;
 }
 

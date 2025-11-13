@@ -86,8 +86,26 @@ $field_groups = $this->get_meta_fields();
 			</p>
 			<p>
 				<strong><?php esc_html_e( 'Highest bid:', 'auction' ); ?></strong>
-				<?php esc_html_e( 'No bids captured yet. This area will display real-time bidding data once implemented.', 'auction' ); ?>
+				<?php
+				if ( ! empty( $values['latest_bid']['amount'] ) ) {
+					echo wp_kses_post( wc_price( $values['latest_bid']['amount'] ) );
+				} else {
+					esc_html_e( 'No bids captured yet.', 'auction' );
+				}
+				?>
 			</p>
+			<?php if ( ! empty( $values['latest_bid']['name'] ) ) : ?>
+				<p>
+					<strong><?php esc_html_e( 'Bidder:', 'auction' ); ?></strong>
+					<?php echo esc_html( $values['latest_bid']['name'] ); ?>
+				</p>
+			<?php endif; ?>
+			<?php if ( ! empty( $values['latest_bid']['time'] ) ) : ?>
+				<p>
+					<strong><?php esc_html_e( 'Bid time:', 'auction' ); ?></strong>
+					<?php echo esc_html( $values['latest_bid']['time'] ); ?>
+				</p>
+			<?php endif; ?>
 			<table class="widefat striped">
 				<thead>
 					<tr>

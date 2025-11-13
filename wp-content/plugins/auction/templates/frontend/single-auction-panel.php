@@ -104,10 +104,40 @@ if ( $leading_bid ) {
 				<span class="auction-highest-bidder"><?php echo esc_html( $highest_bidder_name ); ?></span>
 			</p>
 		<?php endif; ?>
+
+		<?php if ( $latest_bid ) : ?>
+			<p>
+				<strong><?php esc_html_e( 'Latest bid:', 'auction' ); ?></strong>
+				<span>
+					<?php echo esc_html( $latest_bid['display_name'] ?? '' ); ?>
+					—
+					<?php echo wp_kses_post( wc_price( $latest_bid['display_amount'] ?? 0 ) ); ?>
+					<?php
+					if ( ! empty( $latest_bid['display_time'] ) ) {
+						echo ' / ' . esc_html(
+							$latest_bid['display_time']
+						);
+					}
+					?>
+				</span>
+			</p>
+		<?php endif; ?>
 	</div>
 
 <?php if ( 'ended' !== $auction_status ) : ?>
-	<?php if ( is_user_logged_in() ) : ?>
+		<button
+			type="button"
+			class="button auction-open-bid-panel"
+			data-target="#auction-bid-panel-<?php echo esc_attr( $product->get_id() ); ?>"
+		>
+			<?php esc_html_e( 'Bid Now', 'auction' ); ?>
+		</button>
+
+		<div
+			id="auction-bid-panel-<?php echo esc_attr( $product->get_id() ); ?>"
+			class="auction-bid-panel"
+			hidden
+		>
 			<form
 				class="auction-bid-form"
 				data-product-id="<?php echo esc_attr( $product->get_id() ); ?>"
@@ -160,44 +190,72 @@ if ( $leading_bid ) {
 
 				<p class="form-row">
 					<button type="submit" class="button auction-submit-bid">
-						<?php esc_html_e( 'Place bid', 'auction' ); ?>
+						<?php esc_html_e( 'Submit bid', 'auction' ); ?>
 					</button>
 				</p>
 
 				<div class="auction-bid-feedback" role="status" aria-live="polite"></div>
 			</form>
+		</div>
 
-			<?php if ( is_user_logged_in() && Auction_Settings::is_enabled( 'enable_watchlist' ) ) : ?>
-				<button
-					type="button"
-					class="button auction-watchlist-toggle<?php echo $is_watchlisted ? ' is-watchlisted' : ''; ?>"
-					data-product-id="<?php echo esc_attr( $product->get_id() ); ?>"
-					data-nonce="<?php echo esc_attr( $watchlist_nonce ); ?>"
-				>
-					<?php echo $is_watchlisted ? esc_html__( 'Remove from watchlist', 'auction' ) : esc_html__( 'Add to watchlist', 'auction' ); ?>
-				</button>
-			<?php endif; ?>
-		<?php else : ?>
-			<div class="auction-login-prompt">
-				<p>
-					<?php esc_html_e( 'You must be logged in to place a bid.', 'auction' ); ?>
-				</p>
-				<p>
-					<a class="button" href="<?php echo esc_url( wc_get_page_permalink( 'myaccount' ) ); ?>">
-						<?php esc_html_e( 'Log in to your account', 'auction' ); ?>
-					</a>
-				</p>
-				<div class="auction-register-inline">
-					<h4><?php esc_html_e( 'Need an account? Register below.', 'auction' ); ?></h4>
-					<?php echo do_shortcode( '[auction_register_form]' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-				</div>
-			</div>
+		<?php if ( is_user_logged_in() && Auction_Settings::is_enabled( 'enable_watchlist' ) ) : ?>
+			<button
+				type="button"
+				class="button auction-watchlist-toggle<?php echo $is_watchlisted ? ' is-watchlisted' : ''; ?>"
+				data-product-id="<?php echo esc_attr( $product->get_id() ); ?>"
+				data-nonce="<?php echo esc_attr( $watchlist_nonce ); ?>"
+			>
+				<?php echo $is_watchlisted ? esc_html__( 'Remove from watchlist', 'auction' ) : esc_html__( 'Add to watchlist', 'auction' ); ?>
+			</button>
 		<?php endif; ?>
 	<?php else : ?>
 		<p class="auction-ended-message">
 			<?php esc_html_e( 'This auction has ended. Thank you for your interest.', 'auction' ); ?>
 		</p>
 	<?php endif; ?>
+
+<div class="auction-bid-history">
+	<h3><?php esc_html_e( 'Bid history', 'auction' ); ?></h3>
+	<?php if ( $config['sealed'] ) : ?>
+		<p><?php esc_html_e( 'This is a sealed auction. Bid details will remain hidden until the auction ends.', 'auction' ); ?></p>
+	<?php else : ?>
+		<?php if ( ! empty( $bid_history ) ) : ?>
+			<table class="auction-bid-history__table">
+				<thead>
+					<tr>
+						<th><?php esc_html_e( 'Bidder', 'auction' ); ?></th>
+						<th><?php esc_html_e( 'Bid amount', 'auction' ); ?></th>
+						<th><?php esc_html_e( 'Bid time', 'auction' ); ?></th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php foreach ( $bid_history as $entry ) : ?>
+						<tr>
+							<td><?php echo esc_html( $entry['name'] ); ?></td>
+							<td><?php echo wp_kses_post( wc_price( $entry['amount'] ) ); ?></td>
+							<td>
+								<?php
+								if ( ! empty( $entry['time'] ) ) {
+									echo esc_html(
+										wp_date(
+											get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
+											strtotime( $entry['time'] )
+										)
+									);
+								} else {
+									esc_html_e( 'N/A', 'auction' );
+								}
+								?>
+							</td>
+						</tr>
+					<?php endforeach; ?>
+				</tbody>
+			</table>
+		<?php else : ?>
+			<p><?php esc_html_e( 'No bids have been placed yet. Be the first to bid!', 'auction' ); ?></p>
+		<?php endif; ?>
+	<?php endif; ?>
+</div>
 
 	<div class="auction-bid-confirmation" aria-hidden="true" role="dialog">
 		<div class="auction-bid-confirmation__dialog">
@@ -257,9 +315,7 @@ if ( $leading_bid ) {
 			<div class="auction-register-modal__dialog">
 				<button type="button" class="auction-register-modal__close" aria-label="<?php esc_attr_e( 'Close', 'auction' ); ?>">&times;</button>
 				<h3><?php esc_html_e( 'Register an account', 'auction' ); ?></h3>
-				<div class="auction-register-modal__content">
-					<?php echo do_shortcode( '[auction_register_form]' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-				</div>
+				<div class="auction-register-modal__content"></div>
 			</div>
 		</div>
 	<?php endif; ?>

@@ -122,11 +122,25 @@
 
 	function handleBidForm( $form ) {
 		var $panel = $form.closest( '.auction-single-panel' );
+		var $bidPanel = $panel.find( '.auction-bid-panel' );
+		var $openBidButton = $panel.find( '.auction-open-bid-panel' );
 		var $modal = $panel.find( '.auction-bid-confirmation' );
 		var $loginModal = $panel.find( '.auction-login-modal' );
 		var $registerModal = $panel.find( '.auction-register-modal' );
 		var requiresLogin = !! Number( $panel.data( 'requires-login' ) );
 		var enableRegisterModal = !! Number( $panel.data( 'enable-register-modal' ) );
+
+		if ( $openBidButton.length ) {
+			$openBidButton.on( 'click', function () {
+				if ( requiresLogin ) {
+					showLoginModal( $loginModal );
+					return;
+				}
+
+				$bidPanel.prop( 'hidden', false );
+				$openBidButton.prop( 'disabled', true );
+			} );
+		}
 
 		$form.on( 'change', 'input[name="is_auto"]', function () {
 			var checked = $( this ).is( ':checked' );
@@ -169,6 +183,12 @@
 				hideLoginModal( $loginModal );
 			} );
 
+			$loginModal.on( 'click', function ( event ) {
+				if ( $( event.target ).is( '.auction-login-modal' ) ) {
+					hideLoginModal( $loginModal );
+				}
+			} );
+
 			if ( enableRegisterModal && $registerModal.length ) {
 				$loginModal.find( '.auction-login-modal__register-link' ).on( 'click', function ( event ) {
 					event.preventDefault();
@@ -189,6 +209,12 @@
 				hideRegisterModal( $registerModal );
 			} );
 
+			$registerModal.on( 'click', function ( event ) {
+				if ( $( event.target ).is( '.auction-register-modal' ) ) {
+					hideRegisterModal( $registerModal );
+				}
+			} );
+
 			$( document ).on( 'keyup', function ( event ) {
 				if ( event.key === 'Escape' && $registerModal.hasClass( 'is-visible' ) ) {
 					hideRegisterModal( $registerModal );
@@ -205,6 +231,22 @@
 	}
 
 	function showRegisterModal( $modal ) {
+		var $panel = $modal.closest( '.auction-single-panel' );
+		var registerUrl = $panel.data( 'register-url' );
+		var $content = $modal.find( '.auction-register-modal__content' );
+
+		if ( ! config.register_form ) {
+			if ( registerUrl ) {
+				window.location.href = registerUrl;
+				return;
+			}
+		}
+
+		if ( ! $content.data( 'loaded' ) && config.register_form ) {
+			$content.html( config.register_form );
+			$content.data( 'loaded', true );
+		}
+
 		$modal.addClass( 'is-visible' ).attr( 'aria-hidden', 'false' );
 	}
 

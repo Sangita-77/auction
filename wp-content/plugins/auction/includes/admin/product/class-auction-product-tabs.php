@@ -110,9 +110,73 @@ class Auction_Product_Tabs {
 			}
 		}
 
+		$config = array();
+		if ( $product ) {
+			$config = Auction_Product_Helper::get_config( $product );
+		}
+
+		$latest_bid = $product ? Auction_Bid_Manager::get_leading_bid( $product->get_id() ) : null;
+		$values['latest_bid'] = $this->prepare_latest_bid_display( $latest_bid, $config );
+
 		$values['automatic_increment_rules'] = $this->normalize_rules_value( $values['automatic_increment_rules'] ?? array() );
 
 		include __DIR__ . '/views/html-auction-product-panel.php';
+	}
+
+	/**
+	 * Prepare latest bid display data.
+	 *
+	 * @param array|null $bid    Bid record.
+	 * @param array      $config Auction config.
+	 *
+	 * @return array
+	 */
+	private function prepare_latest_bid_display( ?array $bid, array $config ): array {
+		if ( empty( $bid ) ) {
+			return array();
+		}
+
+		return array(
+			'name'   => $this->format_bidder_name( $bid, $config ),
+			'amount' => Auction_Product_Helper::to_float( $bid['bid_amount'] ?? 0 ),
+			'time'   => ! empty( $bid['created_at'] )
+				? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), strtotime( $bid['created_at'] ) )
+				: '',
+		);
+	}
+
+	/**
+	 * Format bidder name for admin panel.
+	 *
+	 * @param array $record Bid record.
+	 * @param array $config Auction config.
+	 *
+	 * @return string
+	 */
+	private function format_bidder_name( array $record, array $config ): string {
+		if ( 'yes' === ( $config['sealed'] ?? 'no' ) ) {
+			return __( 'Hidden (sealed auction)', 'auction' );
+		}
+
+		if ( ! empty( $record['user_id'] ) ) {
+			$user = get_user_by( 'id', absint( $record['user_id'] ) );
+			if ( $user ) {
+				$display_type = Auction_Settings::get( 'bid_username_display', 'masked' );
+				$name         = $user->display_name ?: $user->user_login;
+
+				if ( 'full' === $display_type ) {
+					return $name;
+				}
+
+				return mb_substr( $name, 0, 1 ) . '****' . mb_substr( $name, -1 );
+			}
+		}
+
+		if ( ! empty( $record['session_id'] ) ) {
+			return __( 'Guest bidder', 'auction' );
+		}
+
+		return __( 'Unknown bidder', 'auction' );
 	}
 
 	/**
