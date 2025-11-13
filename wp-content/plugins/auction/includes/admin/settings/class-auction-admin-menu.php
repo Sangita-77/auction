@@ -159,25 +159,21 @@ class Auction_Admin_Menu {
 							$config = Auction_Product_Helper::get_config( $product );
 				$state       = Auction_Product_Helper::get_runtime_state( $product );
 				$status      = Auction_Product_Helper::get_auction_status( $config );
-				$latest_bid  = Auction_Bid_Manager::get_leading_bid( $product->get_id() );
-				$latest_name = __( '—', 'auction' );
-				$latest_amount = '';
-				$latest_time = '';
+				$latest_bid   = Auction_Bid_Manager::get_leading_bid( $product->get_id() );
+				$latest_name  = __( '—', 'auction' );
+				$latest_amount = __( 'N/A', 'auction' );
+				$latest_time   = __( 'N/A', 'auction' );
 
 				if ( $latest_bid ) {
-					$latest_name  = $this->format_bidder_name_admin( $latest_bid, $config );
+					$latest_name   = $this->format_bidder_name_admin( $latest_bid, $config );
 					$latest_amount = wc_price( Auction_Product_Helper::to_float( $latest_bid['bid_amount'] ?? 0 ) );
+
 					if ( ! empty( $latest_bid['created_at'] ) ) {
 						$latest_time = wp_date(
 							get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
 							strtotime( $latest_bid['created_at'] )
 						);
-					} else {
-						$latest_time = __( 'N/A', 'auction' );
 					}
-				} else {
-					$latest_amount = __( 'N/A', 'auction' );
-					$latest_time   = __( 'N/A', 'auction' );
 				}
 
 				$start_time = $config['start_timestamp']

@@ -7,6 +7,10 @@
 
 defined( 'ABSPATH' ) || exit;
 
+use DateTimeImmutable;
+use DateTimeZone;
+use Exception;
+
 /**
  * Handles WooCommerce product data panels for auctions.
  */
@@ -110,13 +114,16 @@ class Auction_Product_Tabs {
 			}
 		}
 
-		$config = array();
-		if ( $product ) {
-			$config = Auction_Product_Helper::get_config( $product );
-		}
-
+		$config     = $product ? Auction_Product_Helper::get_config( $product ) : array();
 		$latest_bid = $product ? Auction_Bid_Manager::get_leading_bid( $product->get_id() ) : null;
-		$values['latest_bid'] = $this->prepare_latest_bid_display( $latest_bid, $config );
+
+		$values['latest_bid']    = $this->prepare_latest_bid_display( $latest_bid, $config );
+		$values['display_start'] = ! empty( $config['start_timestamp'] )
+			? date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $config['start_timestamp'] )
+			: __( 'Not scheduled', 'auction' );
+		$values['display_end']   = ! empty( $config['end_timestamp'] )
+			? date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $config['end_timestamp'] )
+			: __( 'Not scheduled', 'auction' );
 
 		$values['automatic_increment_rules'] = $this->normalize_rules_value( $values['automatic_increment_rules'] ?? array() );
 
@@ -139,9 +146,7 @@ class Auction_Product_Tabs {
 		return array(
 			'name'   => $this->format_bidder_name( $bid, $config ),
 			'amount' => Auction_Product_Helper::to_float( $bid['bid_amount'] ?? 0 ),
-			'time'   => ! empty( $bid['created_at'] )
-				? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), strtotime( $bid['created_at'] ) )
-				: '',
+			'time'   => $this->format_bid_time( $bid['created_at'] ?? '' ),
 		);
 	}
 
@@ -177,6 +182,27 @@ class Auction_Product_Tabs {
 		}
 
 		return __( 'Unknown bidder', 'auction' );
+	}
+
+	/**
+	 * Format bid time for display.
+	 *
+	 * @param string $raw Raw datetime.
+	 *
+	 * @return string
+	 */
+	private function format_bid_time( string $raw ): string {
+		if ( empty( $raw ) ) {
+			return '';
+		}
+
+		$datetime = self::parse_datetime_value( $raw );
+
+		if ( ! $datetime ) {
+			return '';
+		}
+
+		return date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $datetime->getTimestamp() );
 	}
 
 	/**
@@ -216,6 +242,19 @@ class Auction_Product_Tabs {
 	}
 
 	/**
+	 * Normalize datetime input value.
+	 *
+	 * @param string $value Raw value.
+	 *
+	 * @return string
+	 */
+	private function normalize_datetime_input( string $value ): string {
+		$datetime = self::parse_datetime_value( $value, wp_timezone() );
+
+		return $datetime ? $datetime->setTimezone( new DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' ) : '';
+	}
+
+	/**
 	 * Save product meta on update.
 	 *
 	 * @param WC_Product $product Product object.
@@ -240,12 +279,7 @@ class Auction_Product_Tabs {
 					break;
 				case 'datetime':
 					$value = isset( $_POST[ $meta_key ] ) ? sanitize_text_field( wp_unslash( $_POST[ $meta_key ] ) ) : '';
-					if ( $value ) {
-						$timestamp = strtotime( $value );
-						if ( $timestamp ) {
-							$value = gmdate( 'Y-m-d H:i:s', $timestamp );
-						}
-					}
+					$value = $this->normalize_datetime_input( $value );
 					break;
 				case 'select':
 				case 'text':
@@ -515,17 +549,13 @@ class Auction_Product_Tabs {
 	 * @return string
 	 */
 	private function format_datetime_value( string $value ): string {
-		if ( empty( $value ) ) {
+		$datetime = self::parse_datetime_value( $value, new DateTimeZone( 'UTC' ) );
+
+		if ( ! $datetime ) {
 			return '';
 		}
 
-		$timestamp = strtotime( $value );
-
-		if ( ! $timestamp ) {
-			return $value;
-		}
-
-		return gmdate( 'Y-m-d\TH:i', $timestamp );
+		return $datetime->setTimezone( wp_timezone() )->format( 'Y-m-d\TH:i' );
 	}
 
 	/**
@@ -690,6 +720,69 @@ class Auction_Product_Tabs {
 				),
 			),
 		);
+	}
+
+	/**
+	 * Parse a datetime string into site-local DateTimeImmutable.
+	 *
+	 * @param string $value Raw value.
+	 *
+	 * @return DateTimeImmutable|null
+	 */
+	private static function parse_datetime_value( string $value, ?DateTimeZone $assumed_timezone = null ): ?DateTimeImmutable {
+		$value = trim( (string) $value );
+
+		if ( '' === $value ) {
+			return null;
+		}
+
+		$assumed_timezone = $assumed_timezone ?: wp_timezone();
+		$candidates       = array( $value );
+
+		if ( str_contains( $value, 'T' ) ) {
+			$candidates[] = str_replace( 'T', ' ', $value );
+		}
+
+		if ( preg_match( '/^\d{2}-\d{2}-\d{4}/', $value ) ) {
+			$candidates[] = preg_replace( '/(\d{2})-(\d{2})-(\d{4})/u', '$3-$2-$1', $value );
+		}
+
+		$formats = array(
+			'Y-m-d H:i:s',
+			'Y-m-d H:i',
+			'Y-m-d\TH:i:s',
+			'Y-m-d\TH:i',
+			'd-m-Y H:i:s',
+			'd-m-Y H:i',
+			'd-m-Y h:i a',
+			'd-m-Y h:i A',
+			'd/m/Y H:i:s',
+			'd/m/Y H:i',
+			'd/m/Y h:i a',
+			'd/m/Y h:i A',
+		);
+
+		foreach ( $candidates as $candidate ) {
+			$candidate = preg_replace( '/\s+/', ' ', $candidate );
+
+			foreach ( $formats as $format ) {
+				$dt = DateTimeImmutable::createFromFormat( $format, $candidate, $assumed_timezone );
+
+				if ( $dt instanceof DateTimeImmutable ) {
+					return $dt;
+				}
+			}
+
+			try {
+				$dt = new DateTimeImmutable( $candidate, $assumed_timezone );
+
+				return $dt;
+			} catch ( Exception $e ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
+				// Ignore and try next candidate.
+			}
+		}
+
+		return null;
 	}
 }
 

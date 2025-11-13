@@ -20,6 +20,7 @@ class Auction_Install {
 	public static function activate(): void {
 		self::create_tables();
 		self::register_cron_events();
+		self::flush_rewrite_rules_late();
 	}
 
 	/**
@@ -42,6 +43,20 @@ class Auction_Install {
 		if ( $found !== $table_name ) {
 			self::create_tables();
 		}
+	}
+
+	/**
+	 * Flush rewrite rules after endpoints are registered.
+	 *
+	 * @return void
+	 */
+	private static function flush_rewrite_rules_late(): void {
+		add_action(
+			'init',
+			static function () {
+				flush_rewrite_rules();
+			}
+		);
 	}
 
 	/**

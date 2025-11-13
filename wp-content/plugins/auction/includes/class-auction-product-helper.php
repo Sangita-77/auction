@@ -7,6 +7,10 @@
 
 defined( 'ABSPATH' ) || exit;
 
+use DateTimeImmutable;
+use DateTimeZone;
+use Exception;
+
 /**
  * Utility methods to work with auction-enabled products.
  */
@@ -167,9 +171,59 @@ class Auction_Product_Helper {
 			return null;
 		}
 
-		$timestamp = strtotime( $datetime );
+		$timezones = array(
+			wp_timezone(),
+			new DateTimeZone( 'UTC' ),
+		);
 
-		return $timestamp ?: null;
+		$try = array(
+			$datetime,
+			str_replace( 'T', ' ', $datetime ),
+			preg_replace( '/(\d{2})-(\d{2})-(\d{4})/u', '$3-$2-$1', $datetime ),
+		);
+
+		$formats = array(
+			'Y-m-d H:i:s',
+			'Y-m-d H:i',
+			'Y-m-d\TH:i:s',
+			'Y-m-d\TH:i',
+			'd-m-Y H:i:s',
+			'd-m-Y H:i',
+			'd-m-Y h:i a',
+			'd-m-Y h:i A',
+			'd/m/Y H:i:s',
+			'd/m/Y H:i',
+			'd/m/Y h:i a',
+			'd/m/Y h:i A',
+		);
+
+		foreach ( $timezones as $timezone ) {
+			foreach ( $try as $candidate ) {
+				$candidate = trim( (string) $candidate );
+
+				if ( '' === $candidate ) {
+					continue;
+				}
+
+				foreach ( $formats as $format ) {
+					$dt = DateTimeImmutable::createFromFormat( $format, $candidate, $timezone );
+
+					if ( $dt instanceof DateTimeImmutable ) {
+						return $dt->getTimestamp();
+					}
+				}
+
+				try {
+					$dt = new DateTimeImmutable( $candidate, $timezone );
+
+					return $dt->getTimestamp();
+				} catch ( Exception $e ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
+					// Ignore and try next value.
+				}
+			}
+		}
+
+		return null;
 	}
 
 	/**
@@ -260,7 +314,7 @@ class Auction_Product_Helper {
 	 * @return string active|scheduled|ended
 	 */
 	public static function get_auction_status( array $config ): string {
-		$now        = current_time( 'timestamp' );
+		$now        = current_time( 'timestamp', true );
 		$start_time = $config['start_timestamp'];
 		$end_time   = $config['end_timestamp'];
 

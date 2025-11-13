@@ -264,6 +264,7 @@
 
 		function renderCountdown( $el ) {
 			var target = parseInt( $el.data( 'countdown-target' ), 10 );
+			var start  = parseInt( $el.data( 'countdown-start' ), 10 ) || 0;
 
 			if ( ! target ) {
 				return;
@@ -271,6 +272,12 @@
 
 			var now = Math.floor( Date.now() / 1000 );
 			var diff = target - now;
+
+			if ( start && now < start ) {
+				var total = target - start;
+				var elapsed = start - now;
+				diff = total - elapsed;
+			}
 
 			if ( diff <= 0 ) {
 				$el.text( '--:--:--' );

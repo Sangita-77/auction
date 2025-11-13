@@ -96,6 +96,8 @@ class Auction_Loader {
 		require_once __DIR__ . '/class-auction-bid-manager.php';
 		require_once __DIR__ . '/admin/class-auction-admin.php';
 		require_once __DIR__ . '/frontend/class-auction-frontend.php';
+		require_once __DIR__ . '/class-auction-event-manager.php';
+		require_once __DIR__ . '/class-auction-account.php';
 
 		Auction_Admin::instance(
 			array(
@@ -110,6 +112,9 @@ class Auction_Loader {
 				'plugin_url'  => $this->plugin_url,
 			)
 		);
+
+		Auction_Event_Manager::instance();
+		Auction_Account::instance();
 	}
 }
 

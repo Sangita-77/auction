@@ -83,6 +83,9 @@ class Auction_Frontend {
 
 		add_shortcode( 'auction_watchlist', array( $this, 'render_watchlist_shortcode' ) );
 		add_shortcode( 'auction_register_form', array( $this, 'render_registration_form_shortcode' ) );
+
+		add_action( 'template_redirect', array( $this, 'restrict_ended_auction_access' ) );
+		add_filter( 'woocommerce_product_is_visible', array( $this, 'filter_ended_auction_visibility' ), 10, 2 );
 	}
 
 	/**
@@ -218,6 +221,85 @@ class Auction_Frontend {
 				),
 			)
 		);
+	}
+
+	/**
+	 * Restrict access to ended auction product pages.
+	 *
+	 * @return void
+	 */
+	public function restrict_ended_auction_access(): void {
+		if ( is_admin() || ! is_singular( 'product' ) ) {
+			return;
+		}
+
+		$product = wc_get_product( get_queried_object_id() );
+
+		if ( ! $product || ! Auction_Product_Helper::is_auction_product( $product ) ) {
+			return;
+		}
+
+		$config = Auction_Product_Helper::get_config( $product );
+
+		if ( 'ended' !== Auction_Product_Helper::get_auction_status( $config ) ) {
+			return;
+		}
+
+		$winner_id = absint( $product->get_meta( '_auction_winner_user_id', true ) );
+
+		if ( $winner_id && get_current_user_id() === $winner_id ) {
+			return;
+		}
+
+		if ( current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		global $wp_query;
+
+		$wp_query->set_404();
+		status_header( 404 );
+		nocache_headers();
+		include get_query_template( '404' );
+		exit;
+	}
+
+	/**
+	 * Hide ended auction products from catalog visibility.
+	 *
+	 * @param bool $visible   Current visibility.
+	 * @param int  $product_id Product ID.
+	 *
+	 * @return bool
+	 */
+	public function filter_ended_auction_visibility( bool $visible, int $product_id ): bool {
+		if ( is_admin() ) {
+			return $visible;
+		}
+
+		$product = wc_get_product( $product_id );
+
+		if ( ! $product || ! Auction_Product_Helper::is_auction_product( $product ) ) {
+			return $visible;
+		}
+
+		$config = Auction_Product_Helper::get_config( $product );
+
+		if ( 'ended' !== Auction_Product_Helper::get_auction_status( $config ) ) {
+			return $visible;
+		}
+
+		$winner_id = absint( $product->get_meta( '_auction_winner_user_id', true ) );
+
+		if ( $winner_id && get_current_user_id() === $winner_id ) {
+			return true;
+		}
+
+		if ( current_user_can( 'manage_options' ) ) {
+			return true;
+		}
+
+		return false;
 	}
 
 	/**

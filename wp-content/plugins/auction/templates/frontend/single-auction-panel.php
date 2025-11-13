@@ -75,15 +75,19 @@ if ( $leading_bid ) {
 		<?php if ( $start_timestamp ) : ?>
 			<p>
 				<strong><?php esc_html_e( 'Start time:', 'auction' ); ?></strong>
-				<span><?php echo esc_html( wc_format_datetime( wc_string_to_datetime( gmdate( 'Y-m-d H:i:s', $start_timestamp ) ) ) ); ?></span>
+				<span><?php echo esc_html( date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $start_timestamp ) ); ?></span>
 			</p>
 		<?php endif; ?>
 
 		<?php if ( $end_timestamp ) : ?>
 			<p>
 				<strong><?php esc_html_e( 'End time:', 'auction' ); ?></strong>
-				<span class="auction-countdown" data-countdown-target="<?php echo esc_attr( $end_timestamp ); ?>">
-					<?php echo esc_html( wc_format_datetime( wc_string_to_datetime( gmdate( 'Y-m-d H:i:s', $end_timestamp ) ) ) ); ?>
+				<span
+					class="auction-countdown"
+					data-countdown-target="<?php echo esc_attr( $end_timestamp ); ?>"
+					data-countdown-start="<?php echo esc_attr( $start_timestamp ?? 0 ); ?>"
+				>
+					<?php echo esc_html( date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $end_timestamp ) ); ?>
 				</span>
 			</p>
 		<?php endif; ?>

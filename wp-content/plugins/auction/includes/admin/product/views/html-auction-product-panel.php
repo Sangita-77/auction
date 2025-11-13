@@ -78,11 +78,11 @@ $field_groups = $this->get_meta_fields();
 			</p>
 			<p>
 				<strong><?php esc_html_e( 'Start time:', 'auction' ); ?></strong>
-				<?php echo esc_html( $values['start_time'] ?? __( 'Not scheduled', 'auction' ) ); ?>
+				<?php echo esc_html( $values['display_start'] ?? __( 'Not scheduled', 'auction' ) ); ?>
 			</p>
-			<p>
+            <p>
 				<strong><?php esc_html_e( 'End time:', 'auction' ); ?></strong>
-				<?php echo esc_html( $values['end_time'] ?? __( 'Not scheduled', 'auction' ) ); ?>
+				<?php echo esc_html( $values['display_end'] ?? __( 'Not scheduled', 'auction' ) ); ?>
 			</p>
 			<p>
 				<strong><?php esc_html_e( 'Highest bid:', 'auction' ); ?></strong>
