@@ -336,15 +336,22 @@ class Auction_Product_Tabs {
 			return;
 		}
 
-		$start_price = Auction_Product_Helper::to_float(
+		$start_price      = Auction_Product_Helper::to_float(
 			$product->get_meta( $this->meta_prefix . 'start_price', true )
 		);
-
-		$current_bid = Auction_Product_Helper::to_float(
+		$current_bid      = Auction_Product_Helper::to_float(
 			$product->get_meta( $this->meta_prefix . 'current_bid', true )
 		);
+		$buy_now_enabled  = 'yes' === $product->get_meta( $this->meta_prefix . 'buy_now_enabled', true );
+		$buy_now_price    = Auction_Product_Helper::to_float(
+			$product->get_meta( $this->meta_prefix . 'buy_now_price', true )
+		);
 
-		$visible_price = $current_bid > 0 ? $current_bid : $start_price;
+		if ( $buy_now_enabled && $buy_now_price > 0 ) {
+			$visible_price = $buy_now_price;
+		} else {
+			$visible_price = $current_bid > 0 ? $current_bid : $start_price;
+		}
 
 		if ( $visible_price <= 0 ) {
 			return;

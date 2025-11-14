@@ -75,6 +75,11 @@ class Auction_Frontend {
 
 		add_action( 'pre_get_posts', array( $this, 'maybe_filter_catalog_queries' ) );
 
+		add_filter( 'woocommerce_is_purchasable', array( $this, 'maybe_disable_direct_purchase' ), 10, 2 );
+		add_filter( 'woocommerce_product_single_add_to_cart_text', array( $this, 'filter_add_to_cart_text' ), 10, 2 );
+		add_filter( 'woocommerce_product_add_to_cart_text', array( $this, 'filter_add_to_cart_text' ), 10, 2 );
+		add_filter( 'woocommerce_loop_add_to_cart_link', array( $this, 'filter_loop_add_to_cart_link' ), 10, 2 );
+
 		add_action( 'wp_ajax_auction_place_bid', array( $this, 'ajax_place_bid' ) );
 		add_action( 'wp_ajax_nopriv_auction_place_bid', array( $this, 'ajax_place_bid' ) );
 
@@ -588,6 +593,82 @@ class Auction_Frontend {
 
 			$query->set( 'meta_query', $meta_query );
 		}
+	}
+
+	/**
+	 * Prevent direct purchase when buy now is disabled.
+	 *
+	 * @param bool       $purchasable Whether product is purchasable.
+	 * @param WC_Product $product     Product instance.
+	 *
+	 * @return bool
+	 */
+	public function maybe_disable_direct_purchase( bool $purchasable, WC_Product $product ): bool {
+		if ( ! $product instanceof WC_Product ) {
+			return $purchasable;
+		}
+
+		if ( ! Auction_Product_Helper::is_auction_product( $product ) ) {
+			return $purchasable;
+		}
+
+		$config = Auction_Product_Helper::get_config( $product );
+
+		if ( ! $config['buy_now_enabled'] ) {
+			return false;
+		}
+
+		return $purchasable;
+	}
+
+	/**
+	 * Rename add to cart text for auction products.
+	 *
+	 * @param string     $text    Default text.
+	 * @param WC_Product $product Product instance.
+	 *
+	 * @return string
+	 */
+	public function filter_add_to_cart_text( string $text, WC_Product $product ): string {
+		if ( ! $product instanceof WC_Product ) {
+			return $text;
+		}
+
+		if ( ! Auction_Product_Helper::is_auction_product( $product ) ) {
+			return $text;
+		}
+
+		$config = Auction_Product_Helper::get_config( $product );
+
+		return $config['buy_now_enabled']
+			? __( 'Buy Now', 'auction' )
+			: '';
+	}
+
+	/**
+	 * Remove loop add to cart link when buy now is disabled.
+	 *
+	 * @param string     $html    Button HTML.
+	 * @param WC_Product $product Product instance.
+	 *
+	 * @return string
+	 */
+	public function filter_loop_add_to_cart_link( string $html, WC_Product $product ): string {
+		if ( ! $product instanceof WC_Product ) {
+			return $html;
+		}
+
+		if ( ! Auction_Product_Helper::is_auction_product( $product ) ) {
+			return $html;
+		}
+
+		$config = Auction_Product_Helper::get_config( $product );
+
+		if ( ! $config['buy_now_enabled'] ) {
+			return '';
+		}
+
+		return $html;
 	}
 
 	/**
