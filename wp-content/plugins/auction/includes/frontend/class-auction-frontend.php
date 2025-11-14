@@ -202,7 +202,7 @@ class Auction_Frontend {
 				'ajax_url'       => admin_url( 'admin-ajax.php' ),
 				'nonce'          => wp_create_nonce( 'auction_bid_nonce' ),
 				'session_id'     => $this->get_or_set_session_id(),
-				'register_form'  => wp_kses_post( $this->get_registration_form_markup( array(), false ) ),
+				'register_form'  => $this->get_registration_form_markup( array(), false ),
 				'currency'       => array(
 					'symbol'             => get_woocommerce_currency_symbol(),
 					'position'           => get_option( 'woocommerce_currency_pos', 'left' ),
