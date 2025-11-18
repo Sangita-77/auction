@@ -60,6 +60,7 @@ class Auction_Admin_Menu {
 	 */
 	private function hooks(): void {
 		add_action( 'admin_menu', array( $this, 'register_menu' ) );
+		add_action( 'admin_init', array( $this, 'maybe_handle_csv_export_trigger' ) );
 	}
 
 	/**
@@ -107,19 +108,9 @@ class Auction_Admin_Menu {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'auction' ) );
 		}
 
-		$products = new WP_Query(
-			array(
-				'post_type'      => 'product',
-				'post_status'    => array( 'publish', 'future', 'draft' ),
-				'posts_per_page' => 50,
-				'meta_query'     => array(
-					array(
-						'key'   => '_auction_enabled',
-						'value' => 'yes',
-					),
-				),
-			)
-		);
+		$filters    = $this->get_dashboard_filters();
+		$rows       = $this->get_auction_rows( $filters );
+		$export_url = $this->get_export_url( $filters );
 
 		?>
 		<div class="wrap auction-admin-wrap">
@@ -130,9 +121,49 @@ class Auction_Admin_Menu {
 				<a class="button button-primary" href="<?php echo esc_url( admin_url( 'post-new.php?post_type=product' ) ); ?>">
 					<?php esc_html_e( 'Create New Auction Product', 'auction' ); ?>
 				</a>
+				<a class="button" href="<?php echo esc_url( $export_url ); ?>">
+					<?php esc_html_e( 'Export CSV', 'auction' ); ?>
+				</a>
 			</p>
 
-			<?php if ( $products->have_posts() ) : ?>
+			<form method="get" class="auction-admin-filters">
+				<input type="hidden" name="page" value="auction-dashboard" />
+				<label for="auction_status" class="screen-reader-text"><?php esc_html_e( 'Filter by status', 'auction' ); ?></label>
+				<select name="auction_status" id="auction_status">
+					<?php
+					$statuses = array(
+						'all'       => __( 'All statuses', 'auction' ),
+						'active'    => __( 'Active', 'auction' ),
+						'scheduled' => __( 'Scheduled', 'auction' ),
+						'ended'     => __( 'Ended', 'auction' ),
+					);
+					foreach ( $statuses as $value => $label ) :
+						?>
+						<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $filters['status'], $value ); ?>>
+							<?php echo esc_html( $label ); ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+
+				<label for="auction_search" class="screen-reader-text"><?php esc_html_e( 'Search auctions', 'auction' ); ?></label>
+				<input
+					type="search"
+					name="auction_search"
+					id="auction_search"
+					value="<?php echo esc_attr( $filters['search'] ); ?>"
+					placeholder="<?php esc_attr_e( 'Search products…', 'auction' ); ?>"
+				/>
+
+				<button type="submit" class="button button-secondary"><?php esc_html_e( 'Filter', 'auction' ); ?></button>
+
+				<?php if ( 'all' !== $filters['status'] || ! empty( $filters['search'] ) ) : ?>
+					<a class="button button-link" href="<?php echo esc_url( admin_url( 'admin.php?page=auction-dashboard' ) ); ?>">
+						<?php esc_html_e( 'Reset', 'auction' ); ?>
+					</a>
+				<?php endif; ?>
+			</form>
+
+			<?php if ( ! empty( $rows ) ) : ?>
 				<table class="widefat striped">
 					<thead>
 						<tr>
@@ -148,79 +179,301 @@ class Auction_Admin_Menu {
 					</thead>
 					<tbody>
 						<?php
-			while ( $products->have_posts() ) :
-							$products->the_post();
-							$product = wc_get_product( get_the_ID() );
-
-							if ( ! $product ) {
-								continue;
-							}
-
-							$config = Auction_Product_Helper::get_config( $product );
-				$state       = Auction_Product_Helper::get_runtime_state( $product );
-				$status      = Auction_Product_Helper::get_auction_status( $config );
-				$latest_bid   = Auction_Bid_Manager::get_leading_bid( $product->get_id() );
-				$latest_name  = __( '—', 'auction' );
-				$latest_amount = __( 'N/A', 'auction' );
-				$latest_time   = __( 'N/A', 'auction' );
-
-				if ( $latest_bid ) {
-					$latest_name   = $this->format_bidder_name_admin( $latest_bid, $config );
-					$latest_amount = wc_price( Auction_Product_Helper::to_float( $latest_bid['bid_amount'] ?? 0 ) );
-
-					if ( ! empty( $latest_bid['created_at'] ) ) {
-						$latest_time = wp_date(
-							get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
-							strtotime( $latest_bid['created_at'] )
-						);
-					}
-				}
-
-				$start_time = $config['start_timestamp']
-					? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $config['start_timestamp'] )
-					: __( 'Not set', 'auction' );
-				$end_time   = $config['end_timestamp']
-					? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $config['end_timestamp'] )
-					: __( 'Not set', 'auction' );
-				$current_bid = $state['winning_bid_id'] ? $state['current_bid'] : Auction_Product_Helper::get_start_price( $config );
+						foreach ( $rows as $row ) :
+							$current_bid_display = wc_price( $row['current_bid'] );
+							$latest_amount_display = null === $row['latest_amount']
+								? __( 'N/A', 'auction' )
+								: wc_price( $row['latest_amount'] );
 							?>
 							<tr>
 								<td>
-									<a href="<?php echo esc_url( get_edit_post_link( $product->get_id() ) ); ?>">
-										<?php echo esc_html( $product->get_name() ); ?>
+									<a href="<?php echo esc_url( $row['edit_link'] ); ?>">
+										<?php echo esc_html( $row['product_name'] ); ?>
 									</a>
 								</td>
 								<td>
+									<?php echo esc_html( $this->get_status_label( $row['status'] ) ); ?>
+								</td>
+								<td><?php echo esc_html( $row['start_time'] ); ?></td>
+								<td><?php echo esc_html( $row['end_time'] ); ?></td>
+								<td><?php echo wp_kses_post( $current_bid_display ); ?></td>
+								<td><?php echo esc_html( $row['latest_name'] ); ?></td>
+								<td>
 									<?php
-									switch ( $status ) {
-										case 'scheduled':
-											esc_html_e( 'Scheduled', 'auction' );
-											break;
-										case 'ended':
-											esc_html_e( 'Ended', 'auction' );
-											break;
-										default:
-											esc_html_e( 'Active', 'auction' );
-											break;
+									if ( null === $row['latest_amount'] ) {
+										echo esc_html( $latest_amount_display );
+									} else {
+										echo wp_kses_post( $latest_amount_display );
 									}
 									?>
 								</td>
-								<td><?php echo esc_html( $start_time ); ?></td>
-								<td><?php echo esc_html( $end_time ); ?></td>
-								<td><?php echo wp_kses_post( wc_price( $current_bid ) ); ?></td>
-								<td><?php echo esc_html( $latest_name ); ?></td>
-								<td><?php echo wp_kses_post( $latest_amount ); ?></td>
-								<td><?php echo esc_html( $latest_time ); ?></td>
+								<td><?php echo esc_html( $row['latest_time'] ); ?></td>
 							</tr>
-						<?php endwhile; ?>
+						<?php endforeach; ?>
 					</tbody>
 				</table>
-				<?php wp_reset_postdata(); ?>
 			<?php else : ?>
 				<p><?php esc_html_e( 'No auction products found yet.', 'auction' ); ?></p>
 			<?php endif; ?>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Retrieve sanitized dashboard filters from the request.
+	 *
+	 * @return array
+	 */
+	private function get_dashboard_filters(): array {
+		$status = isset( $_GET['auction_status'] ) ? sanitize_key( wp_unslash( $_GET['auction_status'] ) ) : 'all'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		if ( ! in_array( $status, array( 'all', 'active', 'scheduled', 'ended' ), true ) ) {
+			$status = 'all';
+		}
+
+		$search = isset( $_GET['auction_search'] ) ? sanitize_text_field( wp_unslash( $_GET['auction_search'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		return array(
+			'status' => $status,
+			'search' => $search,
+		);
+	}
+
+	/**
+	 * Intercept CSV export requests early in admin lifecycle.
+	 *
+	 * @return void
+	 */
+	public function maybe_handle_csv_export_trigger(): void {
+		if ( empty( $_GET['page'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return;
+		}
+
+		$page = sanitize_text_field( wp_unslash( $_GET['page'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		if ( 'auction-dashboard' !== $page ) {
+			return;
+		}
+
+		if ( empty( $_GET['auction_export'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return;
+		}
+
+		$filters = $this->get_dashboard_filters();
+
+		$this->maybe_handle_csv_export( $filters );
+	}
+
+	/**
+	 * Build CSV export link preserving filters.
+	 *
+	 * @param array $filters Current filters.
+	 *
+	 * @return string
+	 */
+	private function get_export_url( array $filters ): string {
+		$args = array(
+			'page'            => 'auction-dashboard',
+			'auction_export'  => 'csv',
+			'_wpnonce'        => wp_create_nonce( 'auction_export_csv' ),
+		);
+
+		if ( 'all' !== $filters['status'] ) {
+			$args['auction_status'] = $filters['status'];
+		}
+
+		if ( ! empty( $filters['search'] ) ) {
+			$args['auction_search'] = $filters['search'];
+		}
+
+		return add_query_arg( $args, admin_url( 'admin.php' ) );
+	}
+
+	/**
+	 * Maybe output CSV export and exit.
+	 *
+	 * @param array $filters Current filters.
+	 *
+	 * @return void
+	 */
+	private function maybe_handle_csv_export( array $filters ): void {
+		if ( empty( $_GET['auction_export'] ) || 'csv' !== sanitize_key( wp_unslash( $_GET['auction_export'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return;
+		}
+
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( 'You do not have permission to export auctions.', 'auction' ) );
+		}
+
+		$nonce = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		if ( ! wp_verify_nonce( $nonce, 'auction_export_csv' ) ) {
+			wp_die( esc_html__( 'Security check failed.', 'auction' ) );
+		}
+
+		$rows = $this->get_auction_rows( $filters );
+
+		$filename = sprintf( 'auction-export-%s.csv', gmdate( 'Ymd-His' ) );
+
+		nocache_headers();
+		header( 'Content-Type: text/csv; charset=utf-8' );
+		header( 'Content-Disposition: attachment; filename=' . $filename );
+
+		$output = fopen( 'php://output', 'w' );
+
+		fputcsv(
+			$output,
+			array(
+				__( 'Product', 'auction' ),
+				__( 'Status', 'auction' ),
+				__( 'Start Time', 'auction' ),
+				__( 'End Time', 'auction' ),
+				__( 'Current Bid', 'auction' ),
+				__( 'Latest Bidder', 'auction' ),
+				__( 'Latest Bid Amount', 'auction' ),
+				__( 'Latest Bid Time', 'auction' ),
+			)
+		);
+
+		$currency_symbol = get_woocommerce_currency_symbol();
+
+		foreach ( $rows as $row ) {
+			$current_bid = wc_format_decimal( $row['current_bid'], wc_get_price_decimals() );
+			$latest_bid_amount = null === $row['latest_amount']
+				? ''
+				: wc_format_decimal( $row['latest_amount'], wc_get_price_decimals() );
+
+			fputcsv(
+				$output,
+				array(
+					$row['product_name'],
+					$this->get_status_label( $row['status'] ),
+					$row['start_time'],
+					$row['end_time'],
+					trim( $currency_symbol . ' ' . $current_bid ),
+					$row['latest_name'],
+					$latest_bid_amount ? trim( $currency_symbol . ' ' . $latest_bid_amount ) : '',
+					$row['latest_time'],
+				)
+			);
+		}
+
+		fclose( $output );
+		exit;
+	}
+
+	/**
+	 * Collect auction rows based on filters.
+	 *
+	 * @param array $filters Filters array.
+	 *
+	 * @return array
+	 */
+	private function get_auction_rows( array $filters ): array {
+		$query_args = array(
+			'post_type'      => 'product',
+			'post_status'    => array( 'publish', 'future', 'draft' ),
+			'posts_per_page' => -1,
+			'meta_query'     => array(
+				array(
+					'key'   => '_auction_enabled',
+					'value' => 'yes',
+				),
+			),
+		);
+
+		if ( ! empty( $filters['search'] ) ) {
+			$query_args['s'] = $filters['search'];
+		}
+
+		$query = new WP_Query( $query_args );
+
+		if ( ! $query->have_posts() ) {
+			return array();
+		}
+
+		$rows = array();
+
+		while ( $query->have_posts() ) {
+			$query->the_post();
+
+			$product = wc_get_product( get_the_ID() );
+
+			if ( ! $product ) {
+				continue;
+			}
+
+			$config = Auction_Product_Helper::get_config( $product );
+			$state  = Auction_Product_Helper::get_runtime_state( $product );
+			$status = Auction_Product_Helper::get_auction_status( $config );
+
+			if ( 'all' !== $filters['status'] && $status !== $filters['status'] ) {
+				continue;
+			}
+
+			$latest_bid    = Auction_Bid_Manager::get_leading_bid( $product->get_id() );
+			$latest_name   = __( '—', 'auction' );
+			$latest_amount = null;
+			$latest_time   = __( 'N/A', 'auction' );
+
+			if ( $latest_bid ) {
+				$latest_name   = $this->format_bidder_name_admin( $latest_bid, $config );
+				$latest_amount = Auction_Product_Helper::to_float( $latest_bid['bid_amount'] ?? 0 );
+
+				if ( ! empty( $latest_bid['created_at'] ) ) {
+					$latest_time = wp_date(
+						get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
+						strtotime( $latest_bid['created_at'] )
+					);
+				}
+			}
+
+			$start_time = $config['start_timestamp']
+				? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $config['start_timestamp'] )
+				: __( 'Not set', 'auction' );
+			$end_time   = $config['end_timestamp']
+				? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $config['end_timestamp'] )
+				: __( 'Not set', 'auction' );
+
+			$current_bid = $state['winning_bid_id']
+				? Auction_Product_Helper::to_float( $state['current_bid'] ?? 0 )
+				: Auction_Product_Helper::get_start_price( $config );
+
+			$rows[] = array(
+				'product_id'   => $product->get_id(),
+				'product_name' => $product->get_name(),
+				'edit_link'    => get_edit_post_link( $product->get_id() ),
+				'status'       => $status,
+				'start_time'   => $start_time,
+				'end_time'     => $end_time,
+				'current_bid'  => Auction_Product_Helper::to_float( $current_bid ),
+				'latest_name'  => $latest_name,
+				'latest_amount'=> $latest_amount,
+				'latest_time'  => $latest_time,
+			);
+		}
+
+		wp_reset_postdata();
+
+		return $rows;
+	}
+
+	/**
+	 * Human readable label for auction status.
+	 *
+	 * @param string $status Status slug.
+	 *
+	 * @return string
+	 */
+	private function get_status_label( string $status ): string {
+		switch ( $status ) {
+			case 'scheduled':
+				return __( 'Scheduled', 'auction' );
+			case 'ended':
+				return __( 'Ended', 'auction' );
+			default:
+				return __( 'Active', 'auction' );
+		}
 	}
 
 	/**

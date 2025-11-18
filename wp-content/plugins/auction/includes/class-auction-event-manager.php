@@ -24,6 +24,30 @@ class Auction_Event_Manager {
 	 */
 	private function __construct() {
 		add_action( 'auction_check_ending_events', array( $this, 'process_ending_auctions' ) );
+		add_action( 'init', array( $this, 'maybe_process_due_auctions' ) );
+	}
+
+	/**
+	 * Opportunistically run ending checks on normal requests.
+	 *
+	 * @return void
+	 */
+	public function maybe_process_due_auctions(): void {
+		if ( wp_installing() || wp_doing_cron() || wp_doing_ajax() ) {
+			return;
+		}
+
+		$cooldown = (int) apply_filters( 'auction_realtime_process_cooldown', MINUTE_IN_SECONDS );
+		$key      = 'auction_event_manager_last_run';
+		$last_run = (int) get_transient( $key );
+
+		if ( $last_run && ( time() - $last_run ) < $cooldown ) {
+			return;
+		}
+
+		set_transient( $key, time(), max( $cooldown, MINUTE_IN_SECONDS ) );
+
+		$this->process_ending_auctions();
 	}
 
 	/**
