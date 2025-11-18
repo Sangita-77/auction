@@ -190,6 +190,30 @@ class Auction_Admin_Menu {
 									<a href="<?php echo esc_url( $row['edit_link'] ); ?>">
 										<?php echo esc_html( $row['product_name'] ); ?>
 									</a>
+									<div class="row-actions">
+										<span class="edit">
+											<a href="<?php echo esc_url( $row['edit_link'] ); ?>">
+												<?php esc_html_e( 'Edit', 'auction' ); ?>
+											</a>
+											|
+										</span>
+										<span class="trash">
+											<?php
+											$trash_link = get_delete_post_link( $row['product_id'], '', true );
+											if ( $trash_link ) :
+												?>
+												<a href="<?php echo esc_url( $trash_link ); ?>">
+													<?php esc_html_e( 'Trash', 'auction' ); ?>
+												</a>
+												|
+											<?php endif; ?>
+										</span>
+										<span class="view">
+											<a href="<?php echo esc_url( $row['view_link'] ); ?>" target="_blank" rel="noopener noreferrer">
+												<?php esc_html_e( 'View', 'auction' ); ?>
+											</a>
+										</span>
+									</div>
 								</td>
 								<td>
 									<?php echo esc_html( $this->get_status_label( $row['status'] ) ); ?>
@@ -443,6 +467,7 @@ class Auction_Admin_Menu {
 				'product_id'   => $product->get_id(),
 				'product_name' => $product->get_name(),
 				'edit_link'    => get_edit_post_link( $product->get_id() ),
+				'view_link'    => get_permalink( $product->get_id() ),
 				'status'       => $status,
 				'start_time'   => $start_time,
 				'end_time'     => $end_time,
