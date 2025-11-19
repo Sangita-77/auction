@@ -27,6 +27,7 @@ class Auction_Account {
 		add_filter( 'query_vars', array( $this, 'register_query_var' ) );
 		add_filter( 'woocommerce_account_menu_items', array( $this, 'add_menu_item' ) );
 		add_action( 'woocommerce_account_auction-wins_endpoint', array( $this, 'render_endpoint' ) );
+		add_action( 'woocommerce_account_auction-watchlist_endpoint', array( $this, 'render_watchlist_endpoint' ) );
 	}
 
 	/**
@@ -49,6 +50,7 @@ class Auction_Account {
 	 */
 	public function add_endpoint(): void {
 		add_rewrite_endpoint( 'auction-wins', EP_ROOT | EP_PAGES );
+		add_rewrite_endpoint( 'auction-watchlist', EP_ROOT | EP_PAGES );
 	}
 
 	/**
@@ -60,6 +62,7 @@ class Auction_Account {
 	 */
 	public function register_query_var( array $vars ): array {
 		$vars[] = 'auction-wins';
+		$vars[] = 'auction-watchlist';
 
 		return $vars;
 	}
@@ -80,10 +83,18 @@ class Auction_Account {
 			if ( 'orders' === $key ) {
 				$new_items['auction-wins'] = __( 'My Auctions', 'auction' );
 			}
+
+			if ( 'auction-wins' === $key && Auction_Settings::is_enabled( 'enable_watchlist' ) ) {
+				$new_items['auction-watchlist'] = __( 'Watchlist', 'auction' );
+			}
 		}
 
 		if ( ! isset( $new_items['auction-wins'] ) ) {
 			$new_items['auction-wins'] = __( 'My Auctions', 'auction' );
+		}
+
+		if ( Auction_Settings::is_enabled( 'enable_watchlist' ) && ! isset( $new_items['auction-watchlist'] ) ) {
+			$new_items['auction-watchlist'] = __( 'Watchlist', 'auction' );
 		}
 
 		return $new_items;
@@ -153,6 +164,25 @@ class Auction_Account {
 		echo '</tbody></table>';
 
 		wp_reset_postdata();
+	}
+
+	/**
+	 * Render watchlist endpoint content.
+	 *
+	 * @return void
+	 */
+	public function render_watchlist_endpoint(): void {
+		if ( ! is_user_logged_in() ) {
+			echo '<p>' . esc_html__( 'You need to be logged in to view this page.', 'auction' ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			return;
+		}
+
+		if ( ! Auction_Settings::is_enabled( 'enable_watchlist' ) ) {
+			echo '<p>' . esc_html__( 'Watchlists are currently disabled.', 'auction' ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			return;
+		}
+
+		echo do_shortcode( '[auction_watchlist]' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 }
 
