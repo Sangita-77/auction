@@ -110,6 +110,8 @@ class Auction_Admin {
 			);
 		}
 
+		$should_localize_pages = false;
+
 		if ( in_array( $screen->id, array( 'toplevel_page_auction-dashboard', 'auction_page_auction-settings' ), true ) ) {
 			$styles[] = array(
 				'handle' => 'auction-admin-pages',
@@ -121,6 +123,11 @@ class Auction_Admin {
 				'src'    => $this->plugin_url . 'assets/js/admin-pages.js',
 				'deps'   => array( 'jquery' ),
 			);
+			$should_localize_pages = true;
+
+			if ( ! did_action( 'wp_enqueue_media' ) ) {
+				wp_enqueue_media();
+			}
 		}
 
 		foreach ( $styles as $style ) {
@@ -154,6 +161,19 @@ class Auction_Admin {
 					)
 				);
 			}
+		}
+
+		if ( $should_localize_pages ) {
+			wp_localize_script(
+				'auction-admin-pages',
+				'auctionAdminPages',
+				array(
+					'i18n' => array(
+						'mediaTitle'  => __( 'Select badge image', 'auction' ),
+						'mediaButton' => __( 'Use image', 'auction' ),
+					),
+				)
+			);
 		}
 	}
 }

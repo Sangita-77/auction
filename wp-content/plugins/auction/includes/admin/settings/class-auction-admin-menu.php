@@ -693,6 +693,33 @@ class Auction_Admin_Menu {
 							/>
 							<?php
 							break;
+						case 'media':
+							?>
+							<div class="auction-media-control">
+								<input
+									type="text"
+									name="<?php echo esc_attr( $name ); ?>"
+									id="<?php echo esc_attr( $id ); ?>"
+									class="regular-text auction-media-url"
+									value="<?php echo esc_attr( $value ); ?>"
+								/>
+								<button
+									type="button"
+									class="button auction-media-upload"
+									data-target="<?php echo esc_attr( $id ); ?>"
+								>
+									<?php esc_html_e( 'Upload', 'auction' ); ?>
+								</button>
+								<button
+									type="button"
+									class="button-link auction-media-clear"
+									data-target="<?php echo esc_attr( $id ); ?>"
+								>
+									<?php esc_html_e( 'Clear', 'auction' ); ?>
+								</button>
+							</div>
+							<?php
+							break;
 						default:
 							?>
 							<input
@@ -1166,7 +1193,7 @@ class Auction_Admin_Menu {
 						'description' => __( 'Enable to show a badge to identify auction products.', 'auction' ),
 					),
 					'custom_badge_asset'             => array(
-						'type'        => 'text',
+					'type'        => 'media',
 						'label'       => __( 'Badge image URL', 'auction' ),
 						'description' => __( 'Upload or paste the URL of the graphic badge used to identify auctions.', 'auction' ),
 					),

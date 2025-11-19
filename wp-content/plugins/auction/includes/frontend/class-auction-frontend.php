@@ -48,6 +48,32 @@ class Auction_Frontend {
 	}
 
 	/**
+	 * Enforce auction filters on WooCommerce product queries.
+	 *
+	 * @param WP_Query $query Query instance.
+	 *
+	 * @return void
+	 */
+	public function enforce_auction_product_filters( $query ): void { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundBeforeLastUsed
+		if ( is_admin() ) {
+			return;
+		}
+
+		if ( ! $query instanceof WP_Query ) {
+			return;
+		}
+
+		$post_type = $query->get( 'post_type' );
+		if ( $post_type && 'product' !== $post_type ) {
+			return;
+		}
+
+		$meta_query = (array) $query->get( 'meta_query', array() );
+		$meta_query = $this->ensure_auction_enabled_meta_query( $meta_query );
+		$query->set( 'meta_query', $meta_query );
+	}
+
+	/**
 	 * Get singleton instance.
 	 *
 	 * @param array $args Arguments.
@@ -74,6 +100,7 @@ class Auction_Frontend {
 		add_action( 'woocommerce_after_shop_loop_item', array( $this, 'render_loop_badge' ), 20 );
 
 		add_action( 'pre_get_posts', array( $this, 'maybe_filter_catalog_queries' ) );
+		add_action( 'woocommerce_product_query', array( $this, 'enforce_auction_product_filters' ) );
 
 		add_filter( 'woocommerce_is_purchasable', array( $this, 'maybe_disable_direct_purchase' ), 10, 2 );
 		add_filter( 'woocommerce_product_single_add_to_cart_text', array( $this, 'filter_add_to_cart_text' ), 10, 2 );
@@ -524,8 +551,7 @@ class Auction_Frontend {
 
 		if ( $query->is_post_type_archive( 'product' ) || $query->is_tax( get_object_taxonomies( 'product' ) ) ) {
 			$meta_query = (array) $query->get( 'meta_query', array() );
-
-			$meta_query['relation'] = 'AND';
+			$meta_query = $this->ensure_auction_enabled_meta_query( $meta_query );
 
 			if ( ! $show_shop && $query->is_post_type_archive( 'product' ) ) {
 				$meta_query[] = array(
@@ -541,8 +567,7 @@ class Auction_Frontend {
 					),
 				);
 			}
-			// $current_time = current_time( 'mysql' );
-			$current_time = gmdate( 'Y-m-d H:i:s', current_time( 'timestamp', true ) );
+			$current_time = current_time( 'mysql' );
 
 			if ( $hide_ended ) {
 				$meta_query[] = array(
@@ -593,6 +618,46 @@ class Auction_Frontend {
 
 			$query->set( 'meta_query', $meta_query );
 		}
+	}
+
+	/**
+	 * Ensure meta query requires auction-enabled flag.
+	 *
+	 * @param array $meta_query Meta query array.
+	 *
+	 * @return array
+	 */
+	private function ensure_auction_enabled_meta_query( array $meta_query ): array {
+		if ( ! isset( $meta_query['relation'] ) ) {
+			$meta_query['relation'] = 'AND';
+		}
+
+		$has_clause = false;
+
+		foreach ( $meta_query as $key => $clause ) {
+			if ( 'relation' === $key || ! is_array( $clause ) ) {
+				continue;
+			}
+
+			if (
+				isset( $clause['key'], $clause['value'] )
+				&& '_auction_enabled' === $clause['key']
+				&& 'yes' === $clause['value']
+				&& ( $clause['compare'] ?? '=' ) === '='
+			) {
+				$has_clause = true;
+				break;
+			}
+		}
+
+		if ( ! $has_clause ) {
+			$meta_query[] = array(
+				'key'   => '_auction_enabled',
+				'value' => 'yes',
+			);
+		}
+
+		return $meta_query;
 	}
 
 	/**

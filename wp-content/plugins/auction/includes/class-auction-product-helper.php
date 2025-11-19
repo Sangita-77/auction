@@ -314,8 +314,12 @@ class Auction_Product_Helper {
 	 * @return string active|scheduled|ended
 	 */
 	public static function get_auction_status( array $config ): string {
-		$now        = current_time( 'timestamp', true );
+		$now        = current_time( 'timestamp' );
+		// print_r($now);
+		// echo "..................................";
 		$start_time = $config['start_timestamp'];
+		// print_r($start_time);
+
 		$end_time   = $config['end_timestamp'];
 
 		if ( $start_time && $now < $start_time ) {
