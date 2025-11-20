@@ -111,32 +111,37 @@ class Auction_Account {
 			return;
 		}
 
-		$user_id = get_current_user_id();
-
-		$query = new WP_Query(
-			array(
-				'post_type'      => 'product',
-				'post_status'    => array( 'publish', 'private' ),
-				'posts_per_page' => -1,
-				'meta_query'     => array(
-					array(
-						'key'   => '_auction_winner_user_id',
-						'value' => $user_id,
-					),
-				),
-			)
+		$user_id        = get_current_user_id();
+		$participated   = $this->get_user_participated_product_ids( $user_id );
+		$query_args     = array(
+			'post_type'      => 'product',
+			'post_status'    => array( 'publish', 'private' ),
+			'posts_per_page' => -1,
+			'orderby'        => 'post__in',
 		);
 
-		if ( ! $query->have_posts() ) {
-			echo '<p>' . esc_html__( 'You have not won any auctions yet.', 'auction' ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		if ( empty( $participated ) ) {
+			echo '<p>' . esc_html__( 'You have not participated in any auctions yet.', 'auction' ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 			return;
 		}
+
+		$query_args['post__in'] = $participated;
+
+		$query = new WP_Query( $query_args );
+
+		if ( ! $query->have_posts() ) {
+			echo '<p>' . esc_html__( 'You have not participated in any auctions yet.', 'auction' ) . '</p>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			return;
+		}
+
+		$latest_bids = $this->get_user_latest_bids( $user_id );
 
 		echo '<table class="shop_table shop_table_responsive">';
 		echo '<thead><tr>';
 		echo '<th>' . esc_html__( 'Product', 'auction' ) . '</th>';
-		echo '<th>' . esc_html__( 'Winning bid', 'auction' ) . '</th>';
-		echo '<th>' . esc_html__( 'Winning time', 'auction' ) . '</th>';
+		echo '<th>' . esc_html__( 'Status', 'auction' ) . '</th>';
+		echo '<th>' . esc_html__( 'Your last bid', 'auction' ) . '</th>';
+		echo '<th>' . esc_html__( 'Updated', 'auction' ) . '</th>';
 		echo '</tr></thead><tbody>';
 
 		while ( $query->have_posts() ) {
@@ -147,17 +152,41 @@ class Auction_Account {
 				continue;
 			}
 
-			$amount = Auction_Product_Helper::to_float( $product->get_meta( '_auction_winner_amount', true ) );
-			$time   = $product->get_meta( '_auction_winner_time', true );
+			$config      = Auction_Product_Helper::get_config( $product );
+			$status      = Auction_Product_Helper::get_auction_status( $config );
+			$status_text = '';
+
+			switch ( $status ) {
+				case 'scheduled':
+					$status_text = __( 'Upcoming', 'auction' );
+					break;
+				case 'ended':
+					$winner = absint( $product->get_meta( '_auction_winner_user_id', true ) );
+					$status_text = $winner === $user_id ? __( 'Won', 'auction' ) : __( 'Ended', 'auction' );
+					break;
+				default:
+					$status_text = __( 'Active', 'auction' );
+					break;
+			}
+
+			$latest_bid = $latest_bids[ $product->get_id() ] ?? null;
 
 			echo '<tr>';
 			echo '<td><a href="' . esc_url( get_permalink() ) . '">' . esc_html( $product->get_name() ) . '</a></td>';
-			echo '<td>' . wp_kses_post( wc_price( $amount ) ) . '</td>';
-			echo '<td>' . esc_html(
-				$time
-					? wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), strtotime( $time ) )
-					: __( 'N/A', 'auction' )
-			) . '</td>';
+			echo '<td>' . esc_html( $status_text ) . '</td>';
+
+			if ( $latest_bid ) {
+				echo '<td>' . wp_kses_post( wc_price( $latest_bid['bid_amount'] ) ) . '</td>';
+				echo '<td>' . esc_html(
+					wp_date(
+						get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
+						strtotime( $latest_bid['created_at'] )
+					)
+				) . '</td>';
+			} else {
+				echo '<td>' . esc_html__( 'N/A', 'auction' ) . '</td>';
+				echo '<td>' . esc_html__( 'N/A', 'auction' ) . '</td>';
+			}
 			echo '</tr>';
 		}
 
@@ -183,6 +212,70 @@ class Auction_Account {
 		}
 
 		echo do_shortcode( '[auction_watchlist]' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
+
+	/**
+	 * Retrieve product IDs where the user has placed bids.
+	 *
+	 * @param int $user_id User ID.
+	 *
+	 * @return array
+	 */
+	private function get_user_participated_product_ids( int $user_id ): array {
+		if ( ! $user_id ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$table_name = Auction_Install::get_bids_table_name();
+		$results    = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT product_id FROM {$table_name} WHERE user_id = %d ORDER BY product_id DESC",
+				$user_id
+			)
+		);
+
+		return array_map( 'absint', $results ?: array() );
+	}
+
+	/**
+	 * Fetch the latest bid details for each product placed by the user.
+	 *
+	 * @param int $user_id User ID.
+	 *
+	 * @return array
+	 */
+	private function get_user_latest_bids( int $user_id ): array {
+		if ( ! $user_id ) {
+			return array();
+		}
+
+		global $wpdb;
+
+		$table_name = Auction_Install::get_bids_table_name();
+		$rows       = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT product_id, bid_amount, created_at FROM {$table_name} WHERE user_id = %d ORDER BY created_at DESC",
+				$user_id
+			),
+			ARRAY_A
+		);
+
+		$latest = array();
+
+		foreach ( $rows as $row ) {
+			$product_id = absint( $row['product_id'] );
+
+			if ( $product_id && ! isset( $latest[ $product_id ] ) ) {
+				$latest[ $product_id ] = array(
+					'bid_amount' => Auction_Product_Helper::to_float( $row['bid_amount'] ),
+					'created_at' => $row['created_at'],
+				);
+			}
+		}
+
+		return $latest;
 	}
 }
 

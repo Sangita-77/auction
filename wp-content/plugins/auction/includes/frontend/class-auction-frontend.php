@@ -106,6 +106,7 @@ class Auction_Frontend {
 		add_filter( 'woocommerce_product_single_add_to_cart_text', array( $this, 'filter_add_to_cart_text' ), 10, 2 );
 		add_filter( 'woocommerce_product_add_to_cart_text', array( $this, 'filter_add_to_cart_text' ), 10, 2 );
 		add_filter( 'woocommerce_loop_add_to_cart_link', array( $this, 'filter_loop_add_to_cart_link' ), 10, 2 );
+		add_filter( 'woocommerce_is_sold_individually', array( $this, 'disable_quantity_option' ), 10, 2 );
 
 		add_action( 'wp_ajax_auction_place_bid', array( $this, 'ajax_place_bid' ) );
 		add_action( 'wp_ajax_nopriv_auction_place_bid', array( $this, 'ajax_place_bid' ) );
@@ -734,6 +735,22 @@ class Auction_Frontend {
 		}
 
 		return $html;
+	}
+
+	/**
+	 * Disable quantity selection on product page for auction products.
+	 *
+	 * @param bool       $sold_individually Existing flag.
+	 * @param WC_Product $product           Product instance.
+	 *
+	 * @return bool
+	 */
+	public function disable_quantity_option( bool $sold_individually, WC_Product $product ): bool {
+		if ( Auction_Product_Helper::is_auction_product( $product ) ) {
+			return true;
+		}
+
+		return $sold_individually;
 	}
 
 	/**
