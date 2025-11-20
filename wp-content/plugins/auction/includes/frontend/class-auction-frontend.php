@@ -107,6 +107,7 @@ class Auction_Frontend {
 		add_filter( 'woocommerce_product_add_to_cart_text', array( $this, 'filter_add_to_cart_text' ), 10, 2 );
 		add_filter( 'woocommerce_loop_add_to_cart_link', array( $this, 'filter_loop_add_to_cart_link' ), 10, 2 );
 		add_filter( 'woocommerce_is_sold_individually', array( $this, 'disable_quantity_option' ), 10, 2 );
+		add_filter( 'woocommerce_related_products', array( $this, 'filter_related_product_ids' ), 10, 3 );
 
 		add_action( 'wp_ajax_auction_place_bid', array( $this, 'ajax_place_bid' ) );
 		add_action( 'wp_ajax_nopriv_auction_place_bid', array( $this, 'ajax_place_bid' ) );
@@ -119,6 +120,9 @@ class Auction_Frontend {
 
 		add_action( 'template_redirect', array( $this, 'restrict_ended_auction_access' ) );
 		add_filter( 'woocommerce_product_is_visible', array( $this, 'filter_ended_auction_visibility' ), 10, 2 );
+
+		remove_action( 'woocommerce_after_single_product_summary', 'woocommerce_output_related_products', 20 );
+		add_action( 'woocommerce_after_single_product_summary', array( $this, 'render_related_auctions' ), 20 );
 	}
 
 	/**
@@ -1069,6 +1073,152 @@ class Auction_Frontend {
 		<?php
 
 		return ob_get_clean();
+	}
+
+	/**
+	 * Show related auction products only.
+	 *
+	 * @return void
+	 */
+	public function render_related_auctions(): void {
+		global $product;
+
+		if ( ! $product instanceof WC_Product ) {
+			return;
+		}
+
+		if ( ! Auction_Product_Helper::is_auction_product( $product ) ) {
+			return;
+		}
+
+		$related_ids = array_diff( wc_get_related_products( $product->get_id(), 12 ), array( $product->get_id() ) );
+
+		$related_ids = array_filter(
+			$related_ids,
+			static function ( $related_id ) {
+				$related_product = wc_get_product( $related_id );
+
+				return $related_product && Auction_Product_Helper::is_auction_product( $related_product );
+			}
+		);
+
+		$query = $this->build_related_auction_query(
+			array(
+				'post__in' => $related_ids,
+			),
+			$product
+		);
+
+		if ( ! $query->have_posts() ) {
+			wp_reset_postdata();
+			return;
+		}
+
+		echo '<section class="related related-auctions">';
+		echo '<h2>' . esc_html__( 'Related Auctions', 'auction' ) . '</h2>';
+		woocommerce_product_loop_start();
+
+		while ( $query->have_posts() ) {
+			$query->the_post();
+			wc_get_template_part( 'content', 'product' );
+		}
+
+		woocommerce_product_loop_end();
+		echo '</section>';
+
+		wp_reset_postdata();
+	}
+
+	/**
+	 * Ensure WooCommerce related product IDs include auctions only.
+	 *
+	 * @param array $related_ids Array of IDs.
+	 * @param int   $product_id  Current product ID.
+	 * @param array $args        Query arguments.
+	 *
+	 * @return array
+	 */
+	public function filter_related_product_ids( array $related_ids, int $product_id, array $args ): array {
+		$product = wc_get_product( $product_id );
+
+		if ( ! $product || ! Auction_Product_Helper::is_auction_product( $product ) ) {
+			return $related_ids;
+		}
+
+		return array_values(
+			array_filter(
+				$related_ids,
+				static function ( $related_id ) {
+					$related_product = wc_get_product( $related_id );
+
+					return $related_product && Auction_Product_Helper::is_auction_product( $related_product );
+				}
+			)
+		);
+	}
+
+	/**
+	 * Build query for related auction items.
+	 *
+	 * @param array      $args    Base args.
+	 * @param WC_Product $product Current product.
+	 *
+	 * @return WP_Query
+	 */
+	private function build_related_auction_query( array $args, WC_Product $product ): WP_Query {
+		$defaults = array(
+			'post_type'      => 'product',
+			'post_status'    => 'publish',
+			'posts_per_page' => 4,
+			'meta_query'     => array(
+				array(
+					'key'   => '_auction_enabled',
+					'value' => 'yes',
+				),
+			),
+		);
+
+		if ( empty( $args['post__in'] ) ) {
+			$defaults['post__not_in'] = array( $product->get_id() );
+			$defaults['orderby']      = 'rand';
+
+			$categories = wp_list_pluck( get_the_terms( $product->get_id(), 'product_cat' ) ?: array(), 'term_id' );
+
+			if ( $categories ) {
+				$defaults['tax_query'] = array(
+					array(
+						'taxonomy' => 'product_cat',
+						'field'    => 'term_id',
+						'terms'    => $categories,
+					),
+				);
+			}
+		} else {
+			$defaults['post__in'] = $args['post__in'];
+			$defaults['orderby']  = 'post__in';
+		}
+
+		$query_args = wp_parse_args( $args, $defaults );
+
+		if ( isset( $query_args['post__in'] ) && empty( $query_args['post__in'] ) ) {
+			unset( $query_args['post__in'] );
+			$query_args['post__not_in'] = array( $product->get_id() );
+			$query_args['orderby']      = 'rand';
+
+			$categories = wp_list_pluck( get_the_terms( $product->get_id(), 'product_cat' ) ?: array(), 'term_id' );
+
+			if ( $categories ) {
+				$query_args['tax_query'] = array(
+					array(
+						'taxonomy' => 'product_cat',
+						'field'    => 'term_id',
+						'terms'    => $categories,
+					),
+				);
+			}
+		}
+
+		return new WP_Query( $query_args );
 	}
 }
 
