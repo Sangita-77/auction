@@ -164,32 +164,39 @@ class Auction_Admin_Menu {
 			</form>
 
 			<?php if ( ! empty( $rows ) ) : ?>
-				<table class="widefat striped">
+				<table class="widefat striped auction-dashboard-table">
 					<thead>
 						<tr>
 							<th><?php esc_html_e( 'Product', 'auction' ); ?></th>
 							<th><?php esc_html_e( 'Status', 'auction' ); ?></th>
+							<th><?php esc_html_e( 'Auction Type', 'auction' ); ?></th>
 							<th><?php esc_html_e( 'Start Time', 'auction' ); ?></th>
 							<th><?php esc_html_e( 'End Time', 'auction' ); ?></th>
+							<th><?php esc_html_e( 'Start Price', 'auction' ); ?></th>
 							<th><?php esc_html_e( 'Current Bid', 'auction' ); ?></th>
+							<th><?php esc_html_e( 'Reserve Price', 'auction' ); ?></th>
+							<th><?php esc_html_e( 'Total Bids', 'auction' ); ?></th>
 							<th><?php esc_html_e( 'Latest Bidder', 'auction' ); ?></th>
-							<th><?php esc_html_e( 'Latest Bid Amount', 'auction' ); ?></th>
-							<th><?php esc_html_e( 'Latest Bid Time', 'auction' ); ?></th>
+							<th><?php esc_html_e( 'Actions', 'auction' ); ?></th>
 						</tr>
 					</thead>
 					<tbody>
 						<?php
 						foreach ( $rows as $row ) :
 							$current_bid_display = wc_price( $row['current_bid'] );
-							$latest_amount_display = null === $row['latest_amount']
-								? __( 'N/A', 'auction' )
-								: wc_price( $row['latest_amount'] );
+							$start_price_display = wc_price( $row['start_price'] );
+							$reserve_price_display = $row['reserve_price'] > 0 ? wc_price( $row['reserve_price'] ) : __( 'N/A', 'auction' );
+							$buy_now_display = $row['buy_now_enabled'] ? wc_price( $row['buy_now_price'] ) : __( 'Disabled', 'auction' );
 							?>
-							<tr>
+							<tr class="auction-row-main" data-product-id="<?php echo esc_attr( $row['product_id'] ); ?>">
 								<td>
-									<a href="<?php echo esc_url( $row['edit_link'] ); ?>">
-										<?php echo esc_html( $row['product_name'] ); ?>
-									</a>
+									<strong>
+										<a href="<?php echo esc_url( $row['edit_link'] ); ?>">
+											<?php echo esc_html( $row['product_name'] ); ?>
+										</a>
+									</strong>
+									<br>
+									<small class="description"><?php esc_html_e( 'SKU:', 'auction' ); ?> <?php echo esc_html( $row['product_sku'] ); ?></small>
 									<div class="row-actions">
 										<span class="edit">
 											<a href="<?php echo esc_url( $row['edit_link'] ); ?>">
@@ -197,41 +204,257 @@ class Auction_Admin_Menu {
 											</a>
 											|
 										</span>
-										<span class="trash">
-											<?php
-											$trash_link = get_delete_post_link( $row['product_id'], '', true );
-											if ( $trash_link ) :
-												?>
-												<a href="<?php echo esc_url( $trash_link ); ?>">
-													<?php esc_html_e( 'Trash', 'auction' ); ?>
-												</a>
-												|
-											<?php endif; ?>
-										</span>
 										<span class="view">
 											<a href="<?php echo esc_url( $row['view_link'] ); ?>" target="_blank" rel="noopener noreferrer">
 												<?php esc_html_e( 'View', 'auction' ); ?>
+											</a>
+											|
+										</span>
+										<span class="details">
+											<a href="#" class="auction-toggle-details" data-product-id="<?php echo esc_attr( $row['product_id'] ); ?>" data-show-text="<?php esc_attr_e( 'Show Details', 'auction' ); ?>" data-hide-text="<?php esc_attr_e( 'Hide Details', 'auction' ); ?>">
+												<?php esc_html_e( 'Show Details', 'auction' ); ?>
 											</a>
 										</span>
 									</div>
 								</td>
 								<td>
-									<?php echo esc_html( $this->get_status_label( $row['status'] ) ); ?>
+									<span class="auction-status-badge status-<?php echo esc_attr( $row['status'] ); ?>">
+										<?php echo esc_html( $this->get_status_label( $row['status'] ) ); ?>
+									</span>
 								</td>
+								<td><?php echo esc_html( $row['auction_type'] ); ?></td>
 								<td><?php echo esc_html( $row['start_time'] ); ?></td>
 								<td><?php echo esc_html( $row['end_time'] ); ?></td>
-								<td><?php echo wp_kses_post( $current_bid_display ); ?></td>
-								<td><?php echo esc_html( $row['latest_name'] ); ?></td>
+								<td><?php echo wp_kses_post( $start_price_display ); ?></td>
+								<td><strong><?php echo wp_kses_post( $current_bid_display ); ?></strong></td>
+								<td><?php echo is_numeric( $row['reserve_price'] ) && $row['reserve_price'] > 0 ? wp_kses_post( $reserve_price_display ) : esc_html( $reserve_price_display ); ?></td>
 								<td>
-									<?php
-									if ( null === $row['latest_amount'] ) {
-										echo esc_html( $latest_amount_display );
-									} else {
-										echo wp_kses_post( $latest_amount_display );
-									}
-									?>
+									<strong><?php echo esc_html( $row['total_bids'] ); ?></strong>
+									<?php if ( $row['active_bids'] > 0 ) : ?>
+										<br><small class="description"><?php echo esc_html( $row['active_bids'] ); ?> <?php esc_html_e( 'active', 'auction' ); ?></small>
+									<?php endif; ?>
 								</td>
-								<td><?php echo esc_html( $row['latest_time'] ); ?></td>
+								<td>
+									<?php if ( $row['latest_name'] && $row['latest_name'] !== '—' ) : ?>
+										<?php echo esc_html( $row['latest_name'] ); ?>
+										<?php if ( $row['latest_user_id'] ) : ?>
+											<br><small class="description">
+												<a href="<?php echo esc_url( admin_url( 'user-edit.php?user_id=' . $row['latest_user_id'] ) ); ?>">
+													<?php esc_html_e( 'View User', 'auction' ); ?>
+												</a>
+											</small>
+										<?php endif; ?>
+									<?php else : ?>
+										<?php esc_html_e( 'No bids yet', 'auction' ); ?>
+									<?php endif; ?>
+								</td>
+								<td>
+									<a href="<?php echo esc_url( $row['edit_link'] ); ?>" class="button button-small">
+										<?php esc_html_e( 'Edit', 'auction' ); ?>
+									</a>
+									<br><br>
+									<a href="#" class="button button-small auction-toggle-details" data-product-id="<?php echo esc_attr( $row['product_id'] ); ?>" data-show-text="<?php esc_attr_e( 'Show Details', 'auction' ); ?>" data-hide-text="<?php esc_attr_e( 'Hide Details', 'auction' ); ?>">
+										<?php esc_html_e( 'Show Details', 'auction' ); ?>
+									</a>
+								</td>
+							</tr>
+							<tr class="auction-row-details" id="details-<?php echo esc_attr( $row['product_id'] ); ?>" style="display: none;">
+								<td colspan="11">
+									<div class="auction-details-panel">
+										<h3><?php esc_html_e( 'Complete Auction Details', 'auction' ); ?></h3>
+										<div class="auction-details-grid">
+											<div class="auction-details-section">
+												<h4><?php esc_html_e( 'Product Information', 'auction' ); ?></h4>
+												<table class="auction-details-table">
+													<tr>
+														<th><?php esc_html_e( 'Product ID:', 'auction' ); ?></th>
+														<td><?php echo esc_html( $row['product_id'] ); ?></td>
+													</tr>
+													<tr>
+														<th><?php esc_html_e( 'Product Name:', 'auction' ); ?></th>
+														<td><?php echo esc_html( $row['product_name'] ); ?></td>
+													</tr>
+													<tr>
+														<th><?php esc_html_e( 'SKU:', 'auction' ); ?></th>
+														<td><?php echo esc_html( $row['product_sku'] ); ?></td>
+													</tr>
+													<tr>
+														<th><?php esc_html_e( 'Stock Status:', 'auction' ); ?></th>
+														<td><?php echo esc_html( ucfirst( $row['stock_status'] ) ); ?></td>
+													</tr>
+													<tr>
+														<th><?php esc_html_e( 'Stock Quantity:', 'auction' ); ?></th>
+														<td><?php echo esc_html( $row['stock_quantity'] ); ?></td>
+													</tr>
+													<tr>
+														<th><?php esc_html_e( 'Condition:', 'auction' ); ?></th>
+														<td><?php echo esc_html( $row['condition'] ); ?></td>
+													</tr>
+												</table>
+											</div>
+
+											<div class="auction-details-section">
+												<h4><?php esc_html_e( 'Auction Configuration', 'auction' ); ?></h4>
+												<table class="auction-details-table">
+													<tr>
+														<th><?php esc_html_e( 'Auction Type:', 'auction' ); ?></th>
+														<td><?php echo esc_html( $row['auction_type'] ); ?></td>
+													</tr>
+													<tr>
+														<th><?php esc_html_e( 'Status:', 'auction' ); ?></th>
+														<td><span class="auction-status-badge status-<?php echo esc_attr( $row['status'] ); ?>"><?php echo esc_html( $this->get_status_label( $row['status'] ) ); ?></span></td>
+													</tr>
+													<tr>
+														<th><?php esc_html_e( 'Start Time:', 'auction' ); ?></th>
+														<td><?php echo esc_html( $row['start_time'] ); ?></td>
+													</tr>
+													<tr>
+														<th><?php esc_html_e( 'End Time:', 'auction' ); ?></th>
+														<td><?php echo esc_html( $row['end_time'] ); ?></td>
+													</tr>
+													<tr>
+														<th><?php esc_html_e( 'Start Price:', 'auction' ); ?></th>
+														<td><?php echo wp_kses_post( $start_price_display ); ?></td>
+													</tr>
+													<tr>
+														<th><?php esc_html_e( 'Minimum Increment:', 'auction' ); ?></th>
+														<td><?php echo wp_kses_post( wc_price( $row['min_increment'] ) ); ?></td>
+													</tr>
+													<tr>
+														<th><?php esc_html_e( 'Reserve Price:', 'auction' ); ?></th>
+														<td><?php echo is_numeric( $row['reserve_price'] ) && $row['reserve_price'] > 0 ? wp_kses_post( $reserve_price_display ) : esc_html__( 'Not set', 'auction' ); ?></td>
+													</tr>
+													<tr>
+														<th><?php esc_html_e( 'Buy Now:', 'auction' ); ?></th>
+														<td><?php echo $row['buy_now_enabled'] ? wp_kses_post( $buy_now_display ) : esc_html__( 'Disabled', 'auction' ); ?></td>
+													</tr>
+													<tr>
+														<th><?php esc_html_e( 'Automatic Bidding:', 'auction' ); ?></th>
+														<td><?php echo $row['automatic_bidding'] ? esc_html__( 'Enabled', 'auction' ) : esc_html__( 'Disabled', 'auction' ); ?></td>
+													</tr>
+													<tr>
+														<th><?php esc_html_e( 'Bid Increment Mode:', 'auction' ); ?></th>
+														<td><?php echo esc_html( ucfirst( $row['bid_increment_mode'] ) ); ?></td>
+													</tr>
+												</table>
+											</div>
+
+											<div class="auction-details-section">
+												<h4><?php esc_html_e( 'Bidding Information', 'auction' ); ?></h4>
+												<table class="auction-details-table">
+													<tr>
+														<th><?php esc_html_e( 'Current Bid:', 'auction' ); ?></th>
+														<td><strong><?php echo wp_kses_post( $current_bid_display ); ?></strong></td>
+													</tr>
+													<tr>
+														<th><?php esc_html_e( 'Total Bids:', 'auction' ); ?></th>
+														<td><strong><?php echo esc_html( $row['total_bids'] ); ?></strong></td>
+													</tr>
+													<tr>
+														<th><?php esc_html_e( 'Active Bids:', 'auction' ); ?></th>
+														<td><?php echo esc_html( $row['active_bids'] ); ?></td>
+													</tr>
+													<?php if ( $row['latest_name'] && $row['latest_name'] !== '—' ) : ?>
+														<tr>
+															<th><?php esc_html_e( 'Latest Bidder:', 'auction' ); ?></th>
+															<td>
+																<?php echo esc_html( $row['latest_name'] ); ?>
+																<?php if ( $row['latest_user_id'] ) : ?>
+																	<a href="<?php echo esc_url( admin_url( 'user-edit.php?user_id=' . $row['latest_user_id'] ) ); ?>" class="button button-small" style="margin-left: 10px;">
+																		<?php esc_html_e( 'View User', 'auction' ); ?>
+																	</a>
+																<?php endif; ?>
+															</td>
+														</tr>
+														<tr>
+															<th><?php esc_html_e( 'Latest Bid Amount:', 'auction' ); ?></th>
+															<td><?php echo wp_kses_post( wc_price( $row['latest_amount'] ) ); ?></td>
+														</tr>
+														<tr>
+															<th><?php esc_html_e( 'Latest Bid Time:', 'auction' ); ?></th>
+															<td><?php echo esc_html( $row['latest_time'] ); ?></td>
+														</tr>
+													<?php else : ?>
+														<tr>
+															<th><?php esc_html_e( 'Latest Bidder:', 'auction' ); ?></th>
+															<td><?php esc_html_e( 'No bids yet', 'auction' ); ?></td>
+														</tr>
+													<?php endif; ?>
+													<?php if ( $row['proxy_max'] > 0 ) : ?>
+														<tr>
+															<th><?php esc_html_e( 'Active Proxy Bid:', 'auction' ); ?></th>
+															<td>
+																<?php echo wp_kses_post( wc_price( $row['proxy_max'] ) ); ?>
+																<?php if ( $row['proxy_user_id'] ) : ?>
+																	<?php
+																	$proxy_user = get_user_by( 'id', $row['proxy_user_id'] );
+																	if ( $proxy_user ) :
+																		?>
+																		<br><small><?php esc_html_e( 'User:', 'auction' ); ?> 
+																			<a href="<?php echo esc_url( admin_url( 'user-edit.php?user_id=' . $row['proxy_user_id'] ) ); ?>">
+																				<?php echo esc_html( $proxy_user->display_name ?: $proxy_user->user_login ); ?>
+																			</a>
+																		</small>
+																	<?php endif; ?>
+																<?php endif; ?>
+															</td>
+														</tr>
+													<?php endif; ?>
+												</table>
+											</div>
+
+											<?php if ( $row['status'] === 'ended' && $row['winner_user_id'] ) : ?>
+												<div class="auction-details-section">
+													<h4><?php esc_html_e( 'Winner Information', 'auction' ); ?></h4>
+													<table class="auction-details-table">
+														<tr>
+															<th><?php esc_html_e( 'Winner:', 'auction' ); ?></th>
+															<td>
+																<strong><?php echo esc_html( $row['winner_name'] ); ?></strong>
+																<a href="<?php echo esc_url( admin_url( 'user-edit.php?user_id=' . $row['winner_user_id'] ) ); ?>" class="button button-small" style="margin-left: 10px;">
+																	<?php esc_html_e( 'View User', 'auction' ); ?>
+																</a>
+															</td>
+														</tr>
+														<tr>
+															<th><?php esc_html_e( 'Winning Amount:', 'auction' ); ?></th>
+															<td><strong><?php echo wp_kses_post( wc_price( $row['winner_amount'] ) ); ?></strong></td>
+														</tr>
+														<tr>
+															<th><?php esc_html_e( 'Winning Time:', 'auction' ); ?></th>
+															<td><?php echo esc_html( $row['winner_time'] ); ?></td>
+														</tr>
+													</table>
+												</div>
+											<?php endif; ?>
+
+											<div class="auction-details-section">
+												<h4><?php esc_html_e( 'Quick Actions', 'auction' ); ?></h4>
+												<p>
+													<a href="<?php echo esc_url( $row['edit_link'] ); ?>" class="button button-primary">
+														<?php esc_html_e( 'Edit Product', 'auction' ); ?>
+													</a>
+													<a href="<?php echo esc_url( $row['view_link'] ); ?>" class="button" target="_blank" rel="noopener noreferrer">
+														<?php esc_html_e( 'View on Frontend', 'auction' ); ?>
+													</a>
+													<?php
+													$bid_history_url = add_query_arg(
+														array(
+															'post_type' => 'product',
+															'page' => 'auction-bid-history',
+															'product_id' => $row['product_id'],
+														),
+														admin_url( 'edit.php' )
+													);
+													?>
+													<a href="<?php echo esc_url( $row['edit_link'] . '#auction_bids' ); ?>" class="button">
+														<?php esc_html_e( 'View Bid History', 'auction' ); ?>
+													</a>
+												</p>
+											</div>
+										</div>
+									</div>
+								</td>
 							</tr>
 						<?php endforeach; ?>
 					</tbody>
@@ -348,14 +571,26 @@ class Auction_Admin_Menu {
 		fputcsv(
 			$output,
 			array(
-				__( 'Product', 'auction' ),
+				__( 'Product ID', 'auction' ),
+				__( 'Product Name', 'auction' ),
+				__( 'SKU', 'auction' ),
 				__( 'Status', 'auction' ),
+				__( 'Auction Type', 'auction' ),
 				__( 'Start Time', 'auction' ),
 				__( 'End Time', 'auction' ),
+				__( 'Start Price', 'auction' ),
 				__( 'Current Bid', 'auction' ),
+				__( 'Reserve Price', 'auction' ),
+				__( 'Minimum Increment', 'auction' ),
+				__( 'Buy Now Price', 'auction' ),
+				__( 'Total Bids', 'auction' ),
+				__( 'Active Bids', 'auction' ),
 				__( 'Latest Bidder', 'auction' ),
 				__( 'Latest Bid Amount', 'auction' ),
 				__( 'Latest Bid Time', 'auction' ),
+				__( 'Winner', 'auction' ),
+				__( 'Winning Amount', 'auction' ),
+				__( 'Stock Status', 'auction' ),
 			)
 		);
 
@@ -363,21 +598,38 @@ class Auction_Admin_Menu {
 
 		foreach ( $rows as $row ) {
 			$current_bid = wc_format_decimal( $row['current_bid'], wc_get_price_decimals() );
+			$start_price = wc_format_decimal( $row['start_price'], wc_get_price_decimals() );
+			$reserve_price = $row['reserve_price'] > 0 ? wc_format_decimal( $row['reserve_price'], wc_get_price_decimals() ) : '';
+			$min_increment = wc_format_decimal( $row['min_increment'], wc_get_price_decimals() );
+			$buy_now_price = $row['buy_now_enabled'] && $row['buy_now_price'] > 0 ? wc_format_decimal( $row['buy_now_price'], wc_get_price_decimals() ) : '';
 			$latest_bid_amount = null === $row['latest_amount']
 				? ''
 				: wc_format_decimal( $row['latest_amount'], wc_get_price_decimals() );
+			$winner_amount = $row['winner_amount'] > 0 ? wc_format_decimal( $row['winner_amount'], wc_get_price_decimals() ) : '';
 
 			fputcsv(
 				$output,
 				array(
+					$row['product_id'],
 					$row['product_name'],
+					$row['product_sku'],
 					$this->get_status_label( $row['status'] ),
+					$row['auction_type'],
 					$row['start_time'],
 					$row['end_time'],
+					trim( $currency_symbol . ' ' . $start_price ),
 					trim( $currency_symbol . ' ' . $current_bid ),
+					$reserve_price ? trim( $currency_symbol . ' ' . $reserve_price ) : __( 'Not set', 'auction' ),
+					trim( $currency_symbol . ' ' . $min_increment ),
+					$buy_now_price ? trim( $currency_symbol . ' ' . $buy_now_price ) : __( 'Disabled', 'auction' ),
+					$row['total_bids'],
+					$row['active_bids'],
 					$row['latest_name'],
 					$latest_bid_amount ? trim( $currency_symbol . ' ' . $latest_bid_amount ) : '',
 					$row['latest_time'],
+					$row['winner_name'] ?: __( 'N/A', 'auction' ),
+					$winner_amount ? trim( $currency_symbol . ' ' . $winner_amount ) : '',
+					ucfirst( $row['stock_status'] ),
 				)
 			);
 		}
@@ -394,6 +646,8 @@ class Auction_Admin_Menu {
 	 * @return array
 	 */
 	private function get_auction_rows( array $filters ): array {
+		global $wpdb;
+
 		$query_args = array(
 			'post_type'      => 'product',
 			'post_status'    => array( 'publish', 'future', 'draft' ),
@@ -417,6 +671,7 @@ class Auction_Admin_Menu {
 		}
 
 		$rows = array();
+		$bids_table = Auction_Install::get_bids_table_name();
 
 		while ( $query->have_posts() ) {
 			$query->the_post();
@@ -439,10 +694,12 @@ class Auction_Admin_Menu {
 			$latest_name   = __( '—', 'auction' );
 			$latest_amount = null;
 			$latest_time   = __( 'N/A', 'auction' );
+			$latest_user_id = null;
 
 			if ( $latest_bid ) {
 				$latest_name   = $this->format_bidder_name_admin( $latest_bid, $config );
 				$latest_amount = Auction_Product_Helper::to_float( $latest_bid['bid_amount'] ?? 0 );
+				$latest_user_id = absint( $latest_bid['user_id'] ?? 0 );
 
 				if ( ! empty( $latest_bid['created_at'] ) ) {
 					$latest_time = wp_date(
@@ -463,18 +720,83 @@ class Auction_Admin_Menu {
 				? Auction_Product_Helper::to_float( $state['current_bid'] ?? 0 )
 				: Auction_Product_Helper::get_start_price( $config );
 
+			// Get total bid count
+			$total_bids = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$bids_table} WHERE product_id = %d",
+					$product->get_id()
+				)
+			);
+
+			// Get active bid count
+			$active_bids = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT COUNT(*) FROM {$bids_table} WHERE product_id = %d AND status = 'active'",
+					$product->get_id()
+				)
+			);
+
+			// Get winner information if auction ended
+			$winner_user_id = absint( $product->get_meta( '_auction_winner_user_id', true ) );
+			$winner_name = '';
+			$winner_amount = 0;
+			$winner_time = '';
+
+			if ( $winner_user_id ) {
+				$user = get_user_by( 'id', $winner_user_id );
+				if ( $user ) {
+					$winner_name = $user->display_name ?: $user->user_login;
+				}
+				$winner_amount = Auction_Product_Helper::to_float( $product->get_meta( '_auction_winner_amount', true ) );
+				$winner_time_raw = $product->get_meta( '_auction_winner_time', true );
+				if ( $winner_time_raw ) {
+					$winner_time = wp_date(
+						get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
+						strtotime( $winner_time_raw )
+					);
+				}
+			}
+
+			// Get product details
+			$product_sku = $product->get_sku();
+			$stock_status = $product->get_stock_status();
+			$stock_quantity = $product->get_stock_quantity();
+
 			$rows[] = array(
-				'product_id'   => $product->get_id(),
-				'product_name' => $product->get_name(),
-				'edit_link'    => get_edit_post_link( $product->get_id() ),
-				'view_link'    => get_permalink( $product->get_id() ),
-				'status'       => $status,
-				'start_time'   => $start_time,
-				'end_time'     => $end_time,
-				'current_bid'  => Auction_Product_Helper::to_float( $current_bid ),
-				'latest_name'  => $latest_name,
-				'latest_amount'=> $latest_amount,
-				'latest_time'  => $latest_time,
+				'product_id'        => $product->get_id(),
+				'product_name'      => $product->get_name(),
+				'product_sku'       => $product_sku ?: __( 'N/A', 'auction' ),
+				'edit_link'         => get_edit_post_link( $product->get_id() ),
+				'view_link'         => get_permalink( $product->get_id() ),
+				'status'            => $status,
+				'start_time'        => $start_time,
+				'end_time'          => $end_time,
+				'start_timestamp'   => $config['start_timestamp'],
+				'end_timestamp'     => $config['end_timestamp'],
+				'start_price'       => Auction_Product_Helper::to_float( $config['start_price'] ?? 0 ),
+				'reserve_price'     => Auction_Product_Helper::to_float( $config['reserve_price'] ?? 0 ),
+				'min_increment'     => Auction_Product_Helper::to_float( $config['min_increment'] ?? 0 ),
+				'buy_now_enabled'  => $config['buy_now_enabled'] ?? false,
+				'buy_now_price'     => Auction_Product_Helper::to_float( $config['buy_now_price'] ?? 0 ),
+				'auction_type'      => $config['sealed'] ? __( 'Sealed', 'auction' ) : __( 'Standard', 'auction' ),
+				'condition'         => $config['condition'] ?? __( 'N/A', 'auction' ),
+				'automatic_bidding' => $config['automatic_bidding'] ?? false,
+				'bid_increment_mode' => $config['bid_increment_mode'] ?? 'simple',
+				'current_bid'        => Auction_Product_Helper::to_float( $current_bid ),
+				'latest_name'        => $latest_name,
+				'latest_amount'      => $latest_amount,
+				'latest_time'       => $latest_time,
+				'latest_user_id'    => $latest_user_id,
+				'total_bids'         => absint( $total_bids ),
+				'active_bids'       => absint( $active_bids ),
+				'winner_user_id'    => $winner_user_id,
+				'winner_name'        => $winner_name,
+				'winner_amount'      => $winner_amount,
+				'winner_time'        => $winner_time,
+				'stock_status'       => $stock_status,
+				'stock_quantity'    => $stock_quantity !== null ? $stock_quantity : __( 'N/A', 'auction' ),
+				'proxy_max'         => Auction_Product_Helper::to_float( $state['proxy_max'] ?? 0 ),
+				'proxy_user_id'     => absint( $state['proxy_user_id'] ?? 0 ),
 			);
 		}
 

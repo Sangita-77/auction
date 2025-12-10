@@ -64,5 +64,25 @@
 				$input.val( '' ).trigger( 'change' );
 			}
 		} );
+
+		// Auction dashboard details toggle
+		$( document ).on( 'click', '.auction-toggle-details', function ( event ) {
+			event.preventDefault();
+			var productId = $( this ).data( 'product-id' );
+			var $detailsRow = $( '#details-' + productId );
+			var $toggleElements = $( '.auction-toggle-details[data-product-id="' + productId + '"]' );
+			var showText = $( this ).data( 'show-text' ) || 'Show Details';
+			var hideText = $( this ).data( 'hide-text' ) || 'Hide Details';
+
+			if ( $detailsRow.length ) {
+				if ( $detailsRow.is( ':visible' ) ) {
+					$detailsRow.slideUp( 300 );
+					$toggleElements.text( showText );
+				} else {
+					$detailsRow.slideDown( 300 );
+					$toggleElements.text( hideText );
+				}
+			}
+		} );
 	} );
 } )( window.jQuery );
