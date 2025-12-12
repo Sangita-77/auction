@@ -128,6 +128,9 @@ class Auction_Frontend {
 		add_filter( 'woocommerce_loop_add_to_cart_link', array( $this, 'filter_loop_add_to_cart_link' ), 10, 2 );
 		add_filter( 'woocommerce_is_sold_individually', array( $this, 'disable_quantity_option' ), 10, 2 );
 		add_filter( 'woocommerce_related_products', array( $this, 'filter_related_product_ids' ), 10, 3 );
+		
+		// Hide main price on auction page
+		add_filter( 'woocommerce_get_price_html', array( $this, 'hide_price_on_auction_page' ), 10, 2 );
 
 		add_action( 'wp_ajax_auction_place_bid', array( $this, 'ajax_place_bid' ) );
 		add_action( 'wp_ajax_nopriv_auction_place_bid', array( $this, 'ajax_place_bid' ) );
@@ -716,6 +719,46 @@ class Auction_Frontend {
 		$start_timestamp = $config['start_timestamp'] ?: 0;
 		$end_timestamp   = $config['end_timestamp'] ?: 0;
 	
+		// Get bid information
+		$state = Auction_Product_Helper::get_runtime_state( $product );
+		$current_bid = $state['winning_bid_id'] ? $state['current_bid'] : Auction_Product_Helper::get_start_price( $config );
+		$current_bid = $current_bid > 0 ? $current_bid : 0;
+		
+		// Get total bid count
+		$all_bids = Auction_Bid_Manager::get_bid_history( $product->get_id(), 1000, true );
+		$total_bids = count( $all_bids );
+		
+		// Get high bidder name
+		$leading_bid = Auction_Bid_Manager::get_leading_bid( $product->get_id() );
+		$high_bidder_name = __( 'No bids yet', 'auction' );
+		if ( $leading_bid ) {
+			if ( 'yes' === ( $config['sealed'] ?? 'no' ) ) {
+				$high_bidder_name = __( 'Hidden (sealed auction)', 'auction' );
+			} elseif ( ! empty( $leading_bid['user_id'] ) ) {
+				$user = get_user_by( 'id', absint( $leading_bid['user_id'] ) );
+				if ( $user ) {
+					$display_type = Auction_Settings::get( 'bid_username_display', 'masked' );
+					$name = $user->display_name ?: $user->user_login;
+					if ( 'full' === $display_type ) {
+						$high_bidder_name = $name;
+					} else {
+						$high_bidder_name = mb_substr( $name, 0, 1 ) . '****' . mb_substr( $name, -1 );
+					}
+				}
+			} elseif ( ! empty( $leading_bid['session_id'] ) ) {
+				$high_bidder_name = __( 'Guest bidder', 'auction' );
+			}
+		}
+		
+		// Get min bid (start price)
+		$min_bid = Auction_Product_Helper::get_start_price( $config );
+		
+		// Get bid increment
+		$bid_increment = Auction_Product_Helper::get_manual_increment( $config );
+		
+		// Get product URL
+		$product_url = get_permalink( $product->get_id() );
+	
 		echo '<div class="auction-loop-meta" data-auction-product="' . esc_attr( $product->get_id() ) . '" data-auction-status="' . esc_attr( $status ) . '" ' . ($end_timestamp ? 'data-auction-end="' . esc_attr( $end_timestamp) . '"' : '') . '>';
 	
 		// Badge
@@ -730,30 +773,50 @@ class Auction_Frontend {
 			echo '</span>';
 		}
 	
-		// Countdown
-		$start_attr = $start_timestamp ? ' data-countdown-start="' . esc_attr( $start_timestamp ) . '"' : '';
-
-		if ( $end_timestamp && Auction_Settings::is_enabled( 'show_countdown_loop' ) ) {
-			echo '<span class="auction-countdown" data-countdown-target="' . esc_attr( $end_timestamp ) . '"' . $start_attr . '></span>';
-		}
-	
-		// Current bid
-		$state = Auction_Product_Helper::get_runtime_state( $product );
-		$current_bid = $state['winning_bid_id'] ? $state['current_bid'] : Auction_Product_Helper::get_start_price( $config );
-		$current_bid = $current_bid > 0 ? $current_bid : 0;
-		$currency = get_woocommerce_currency_symbol();
-	
 		echo '<div class="auction-loop-info">';
-		if ( $end_timestamp ) {
-			echo '<span class="auction-end">Auction ends: <strong>' . date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $end_timestamp ) . '</strong></span><br>';
-			echo '<span class="auction-countdown" data-countdown-target="' . esc_attr( $end_timestamp ) . '"' . $start_attr . '></span>';
-		}
-
-		// if ( $end_timestamp ) {
-		// 	echo '<span class="auction-countdown" data-countdown-target="' . esc_attr( $end_timestamp ) . '"></span>';
-		// }
 		
-		echo '<span class="auction-current-bid">Current bid: <strong>' . wc_price( $current_bid ) . '</strong></span>';
+		// Auction end time
+		if ( $end_timestamp ) {
+			$start_attr = $start_timestamp ? ' data-countdown-start="' . esc_attr( $start_timestamp ) . '"' : '';
+			echo '<div class="auction-info-row">';
+			echo '<strong>' . esc_html__( 'Auction Ends:', 'auction' ) . '</strong> ';
+			echo '<span class="auction-end-time">' . esc_html( date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $end_timestamp ) ) . '</span>';
+			if ( Auction_Settings::is_enabled( 'show_countdown_loop' ) ) {
+				echo ' <span class="auction-countdown" data-countdown-target="' . esc_attr( $end_timestamp ) . '"' . $start_attr . '></span>';
+			}
+			echo '</div>';
+		}
+		
+		// Current Bid with total bid count
+		echo '<div class="auction-info-row">';
+		echo '<strong>' . esc_html__( 'Current Bid:', 'auction' ) . '</strong> ';
+		echo '<span class="auction-current-bid">' . wp_kses_post( wc_price( $current_bid ) ) . '</span>';
+		echo ' <span class="auction-bid-count">(' . esc_html__( 'bids:', 'auction' ) . ' ' . esc_html( $total_bids ) . ')</span>';
+		echo '</div>';
+		
+		// High Bidder
+		echo '<div class="auction-info-row">';
+		echo '<strong>' . esc_html__( 'High Bidder:', 'auction' ) . '</strong> ';
+		echo '<span class="auction-high-bidder">' . esc_html( $high_bidder_name ) . '</span>';
+		echo '</div>';
+		
+		// Min Bid
+		echo '<div class="auction-info-row">';
+		echo '<strong>' . esc_html__( 'Min Bid:', 'auction' ) . '</strong> ';
+		echo '<span class="auction-min-bid">' . wp_kses_post( wc_price( $min_bid ) ) . '</span>';
+		echo '</div>';
+		
+		// Bid Increment
+		echo '<div class="auction-info-row">';
+		echo '<strong>' . esc_html__( 'Bid Increment:', 'auction' ) . '</strong> ';
+		echo '<span class="auction-bid-increment">' . wp_kses_post( wc_price( $bid_increment ) ) . '</span>';
+		echo '</div>';
+		
+		// Lot Details button
+		echo '<div class="auction-info-row auction-lot-details">';
+		echo '<a href="' . esc_url( $product_url ) . '" class="button auction-lot-details-btn">' . esc_html__( 'Lot Details', 'auction' ) . '</a>';
+		echo '</div>';
+		
 		echo '</div>';
 	
 		echo '</div>';
@@ -1142,6 +1205,40 @@ class Auction_Frontend {
 		}
 
 		return $sold_individually;
+	}
+
+	/**
+	 * Hide main price on auction page for auction products.
+	 *
+	 * @param string     $price_html Price HTML.
+	 * @param WC_Product $product    Product instance.
+	 *
+	 * @return string
+	 */
+	public function hide_price_on_auction_page( string $price_html, WC_Product $product ): string {
+		// Only hide on shop/archive pages (not single product pages)
+		if ( is_product() ) {
+			return $price_html;
+		}
+
+		// Check if we're on the auction page
+		$is_auction_page = false;
+		if ( isset( $_GET['auction_page'] ) && '1' === $_GET['auction_page'] ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$is_auction_page = true;
+		}
+
+		// Check query var from rewrite rule
+		global $wp_query;
+		if ( ! $is_auction_page && $wp_query && $wp_query->get( 'auction_page' ) === '1' ) {
+			$is_auction_page = true;
+		}
+
+		// Only hide price for auction products on auction page
+		if ( $is_auction_page && Auction_Product_Helper::is_auction_product( $product ) ) {
+			return '';
+		}
+
+		return $price_html;
 	}
 
 	/**

@@ -52,12 +52,46 @@
 	color: #1a73e8;
 }
 
-.auction-loop-meta {
+.auction-loop-meta .auction-info-row {
+	margin: 8px 0;
+	line-height: 1.6;
 	display: flex;
 	align-items: center;
-	gap: 6px;
-	font-size: 12px;
-	margin-top: 6px;
+	flex-wrap: wrap;
+	gap: 5px;
+}
+
+.auction-loop-meta .auction-loop-info {
+	display: block;
+	margin-top: 8px;
+}
+
+.auction-loop-meta .auction-info-row strong {
+	font-weight: 600;
+	min-width: 120px;
+	display: inline-block;
+}
+
+.auction-loop-meta .auction-lot-details {
+	margin-top: 15px;
+	padding-top: 15px;
+	border-top: 1px solid #e0e0e0;
+}
+
+.auction-loop-meta .auction-lot-details-btn {
+	width: 100%;
+	text-align: center;
+	padding: 10px;
+	font-weight: 600;
+}
+
+.auction-loop-meta {
+	font-size: 13px;
+	margin-top: 12px;
+	padding: 12px;
+	background: #f9f9f9;
+	border: 1px solid #e0e0e0;
+	border-radius: 4px;
 }
 
 .auction-loop-meta .auction-badge {
