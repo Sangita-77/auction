@@ -1633,7 +1633,18 @@ class Auction_Frontend {
 			return $posts;
 		}
 
-		// Organize products into sections
+		// Check if user has applied custom sorting (not default menu_order)
+		$orderby = $query->get( 'orderby' );
+		$orderby = $orderby ?: ( isset( $_GET['orderby'] ) ? sanitize_text_field( wp_unslash( $_GET['orderby'] ) ) : '' ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		
+		// If custom sorting is applied (not default), preserve the sort order and don't reorganize
+		// This ensures auction products appear in correct order when sorted by date, price, etc.
+		if ( $orderby && ! in_array( $orderby, array( 'menu_order', 'title', '' ), true ) ) {
+			// Custom sort is active - don't reorganize, just preserve original order
+			return $posts;
+		}
+
+		// Organize products into sections (only when using default sorting)
 		$products_without_auction = array();
 		$products_auction_only     = array();
 		$products_auction_buy_now = array();
