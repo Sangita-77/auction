@@ -115,9 +115,19 @@ $field_groups = $this->get_meta_fields();
 					</tr>
 				</thead>
 				<tbody>
-					<tr>
-						<td colspan="3"><?php esc_html_e( 'Bids log will appear here once the bidding engine is connected.', 'auction' ); ?></td>
-					</tr>
+					<?php if ( ! empty( $values['all_bids'] ) ) : ?>
+						<?php foreach ( $values['all_bids'] as $bid ) : ?>
+							<tr>
+								<td><?php echo esc_html( $bid['name'] ); ?></td>
+								<td><?php echo wp_kses_post( wc_price( $bid['amount'] ) ); ?></td>
+								<td><?php echo esc_html( $bid['date'] ); ?></td>
+							</tr>
+						<?php endforeach; ?>
+					<?php else : ?>
+						<tr>
+							<td colspan="3"><?php esc_html_e( 'No bids yet.', 'auction' ); ?></td>
+						</tr>
+					<?php endif; ?>
 				</tbody>
 			</table>
 		</div>

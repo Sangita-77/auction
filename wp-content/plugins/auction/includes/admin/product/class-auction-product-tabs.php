@@ -127,6 +127,9 @@ class Auction_Product_Tabs {
 
 		$values['automatic_increment_rules'] = $this->normalize_rules_value( $values['automatic_increment_rules'] ?? array() );
 
+		// Get all bids for the product to display in status section
+		$values['all_bids'] = $product ? $this->prepare_bids_display( $product->get_id(), $config ) : array();
+
 		include __DIR__ . '/views/html-auction-product-panel.php';
 	}
 
@@ -148,6 +151,30 @@ class Auction_Product_Tabs {
 			'amount' => Auction_Product_Helper::to_float( $bid['bid_amount'] ?? 0 ),
 			'time'   => $this->format_bid_time( $bid['created_at'] ?? '' ),
 		);
+	}
+
+	/**
+	 * Prepare all bids for display in status section.
+	 *
+	 * @param int   $product_id Product ID.
+	 * @param array $config     Auction config.
+	 *
+	 * @return array
+	 */
+	private function prepare_bids_display( int $product_id, array $config ): array {
+		$bids = Auction_Bid_Manager::get_bid_history( $product_id, 100, true ); // Get up to 100 bids, including outbid ones
+		$formatted_bids = array();
+
+		foreach ( $bids as $bid ) {
+			$formatted_bids[] = array(
+				'name'   => $this->format_bidder_name( $bid, $config ),
+				'amount' => Auction_Product_Helper::to_float( $bid['bid_amount'] ?? 0 ),
+				'date'   => $this->format_bid_time( $bid['created_at'] ?? '' ),
+				'status' => $bid['status'] ?? 'active',
+			);
+		}
+
+		return $formatted_bids;
 	}
 
 	/**
