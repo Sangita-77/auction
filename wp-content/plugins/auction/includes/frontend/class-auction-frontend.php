@@ -43,6 +43,11 @@ class Auction_Frontend {
 		$this->plugin_url  = $args['plugin_url'] ?? '';
 
 		add_action( 'init', array( $this, 'maybe_handle_registration_form' ) );
+		add_action( 'init', array( $this, 'add_auction_page_rewrite_rule' ) );
+		
+		// Try to create menu item on every page load until it succeeds
+		add_action( 'wp_loaded', array( $this, 'maybe_create_menu_item' ), 999 );
+		add_action( 'init', array( $this, 'maybe_create_menu_item' ), 999 );
 
 		$this->hooks();
 	}
@@ -68,9 +73,13 @@ class Auction_Frontend {
 			return;
 		}
 
-		$meta_query = (array) $query->get( 'meta_query', array() );
-		$meta_query = $this->ensure_auction_enabled_meta_query( $meta_query );
-		$query->set( 'meta_query', $meta_query );
+		// Respect product_display_mode setting - don't enforce auction filter when 'all' is selected
+		$display_mode = Auction_Settings::get( 'product_display_mode', 'all' );
+		
+		// When display mode is set, don't add any auction filter here
+		// The maybe_filter_catalog_queries method handles all filtering based on display mode
+		// This prevents conflicting filters that would restrict products incorrectly
+		return;
 	}
 
 	/**
@@ -96,11 +105,22 @@ class Auction_Frontend {
 	private function hooks(): void {
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 
+		add_filter( 'query_vars', array( $this, 'add_query_vars' ) );
+
+		// Add auctions page to navigation menu
+		add_action( 'admin_head-nav-menus.php', array( $this, 'add_nav_menu_meta_box' ) );
+		add_filter( 'wp_setup_nav_menu_item', array( $this, 'setup_nav_menu_item' ) );
+		add_filter( 'wp_nav_menu_objects', array( $this, 'nav_menu_item_classes' ) );
+
 		add_action( 'woocommerce_single_product_summary', array( $this, 'render_single_product_auction_panel' ), 25 );
 		add_action( 'woocommerce_after_shop_loop_item', array( $this, 'render_loop_badge' ), 20 );
+		add_action( 'woocommerce_before_shop_loop', array( $this, 'maybe_output_first_section_header' ), 25 );
+		add_action( 'woocommerce_shop_loop', array( $this, 'maybe_output_section_header' ), 5 );
 
 		add_action( 'pre_get_posts', array( $this, 'maybe_filter_catalog_queries' ) );
 		add_action( 'woocommerce_product_query', array( $this, 'enforce_auction_product_filters' ) );
+		add_filter( 'posts_where', array( $this, 'filter_buy_shop_products_where' ), 10, 2 );
+		add_filter( 'the_posts', array( $this, 'organize_products_by_sections' ), 10, 2 );
 
 		add_filter( 'woocommerce_is_purchasable', array( $this, 'maybe_disable_direct_purchase' ), 10, 2 );
 		add_filter( 'woocommerce_product_single_add_to_cart_text', array( $this, 'filter_add_to_cart_text' ), 10, 2 );
@@ -123,6 +143,210 @@ class Auction_Frontend {
 
 		remove_action( 'woocommerce_after_single_product_summary', 'woocommerce_output_related_products', 20 );
 		add_action( 'woocommerce_after_single_product_summary', array( $this, 'render_related_auctions' ), 20 );
+	}
+
+	/**
+	 * Add rewrite rule for auction page.
+	 *
+	 * @return void
+	 */
+	public function add_auction_page_rewrite_rule(): void {
+		$shop_page_id = wc_get_page_id( 'shop' );
+		if ( ! $shop_page_id ) {
+			return;
+		}
+
+		$shop_page = get_post( $shop_page_id );
+		if ( ! $shop_page ) {
+			return;
+		}
+
+		$shop_slug = $shop_page->post_name;
+		if ( ! $shop_slug ) {
+			$shop_slug = 'shop';
+		}
+
+		// Add rewrite rule for /shop/auctions/ or /auctions/
+		add_rewrite_rule(
+			'^auctions/?$',
+			'index.php?post_type=product&auction_page=1',
+			'top'
+		);
+
+		// Also add /shop/auctions/ if shop page exists
+		add_rewrite_rule(
+			'^' . $shop_slug . '/auctions/?$',
+			'index.php?post_type=product&auction_page=1',
+			'top'
+		);
+	}
+
+	/**
+	 * Maybe create menu item on init.
+	 *
+	 * @return void
+	 */
+	public function maybe_create_menu_item(): void {
+		// Check if already created
+		$created = get_option( 'auction_menu_item_created', false );
+		if ( $created ) {
+			return;
+		}
+
+		// Always try if not created yet (removed flag check to make it more aggressive)
+		// Try to create
+		require_once __DIR__ . '/../class-auction-install.php';
+		$result = Auction_Install::create_auction_menu_item();
+		
+		// If successful, clear flags
+		if ( ! is_wp_error( $result ) ) {
+			delete_option( 'auction_should_create_menu' );
+			delete_option( 'auction_force_create_menu' );
+		} elseif ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			error_log( 'Auction: Menu creation failed: ' . $result->get_error_message() );
+		}
+	}
+
+	/**
+	 * Add custom query vars.
+	 *
+	 * @param array $vars Existing query vars.
+	 * @return array
+	 */
+	public function add_query_vars( array $vars ): array {
+		$vars[] = 'auction_page';
+		return $vars;
+	}
+
+	/**
+	 * Add auctions page meta box to navigation menu admin.
+	 *
+	 * @return void
+	 */
+	public function add_nav_menu_meta_box(): void {
+		add_meta_box(
+			'auction-nav-menu',
+			__( 'Auctions', 'auction' ),
+			array( $this, 'nav_menu_meta_box' ),
+			'nav-menus',
+			'side',
+			'low'
+		);
+	}
+
+	/**
+	 * Output the auctions page meta box in navigation menu admin.
+	 *
+	 * @return void
+	 */
+	public function nav_menu_meta_box(): void {
+		global $_nav_menu_placeholder, $nav_menu_selected_id;
+
+		$_nav_menu_placeholder = 0 > $_nav_menu_placeholder ? $_nav_menu_placeholder - 1 : -1;
+
+		$auction_url = $this->get_auction_page_url();
+		?>
+		<div id="auction-menu-items" class="posttypediv">
+			<div id="tabs-panel-auction" class="tabs-panel tabs-panel-active">
+				<ul id="auction-checklist" class="categorychecklist form-no-clear">
+					<li>
+						<label class="menu-item-title">
+							<input type="checkbox" class="menu-item-checkbox" name="menu-item[<?php echo esc_attr( $_nav_menu_placeholder ); ?>][menu-item-object-id]" value="-1" />
+							<?php esc_html_e( 'Auctions', 'auction' ); ?>
+						</label>
+						<input type="hidden" class="menu-item-type" name="menu-item[<?php echo esc_attr( $_nav_menu_placeholder ); ?>][menu-item-type]" value="custom" />
+						<input type="hidden" class="menu-item-title" name="menu-item[<?php echo esc_attr( $_nav_menu_placeholder ); ?>][menu-item-title]" value="<?php echo esc_attr__( 'Auctions', 'auction' ); ?>" />
+						<input type="hidden" class="menu-item-url" name="menu-item[<?php echo esc_attr( $_nav_menu_placeholder ); ?>][menu-item-url]" value="<?php echo esc_url( $auction_url ); ?>" />
+						<input type="hidden" class="menu-item-classes" name="menu-item[<?php echo esc_attr( $_nav_menu_placeholder ); ?>][menu-item-classes]" value="auctions-menu-item" />
+					</li>
+				</ul>
+			</div>
+			<p class="button-controls" data-items-type="auction-menu-items">
+				<span class="list-controls">
+					<label>
+						<input type="checkbox" class="select-all" />
+						<?php esc_html_e( 'Select All', 'auction' ); ?>
+					</label>
+				</span>
+				<span class="add-to-menu">
+					<button type="submit" class="button-secondary submit-add-to-menu right" value="<?php esc_attr_e( 'Add to Menu', 'auction' ); ?>" name="add-auction-menu-item" id="submit-auction-menu-items"><?php esc_html_e( 'Add to Menu', 'auction' ); ?></button>
+					<span class="spinner"></span>
+				</span>
+			</p>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Get the auction page URL.
+	 *
+	 * @return string
+	 */
+	private function get_auction_page_url(): string {
+		$shop_page_id = wc_get_page_id( 'shop' );
+		if ( $shop_page_id ) {
+			$shop_url = get_permalink( $shop_page_id );
+			return add_query_arg( 'auction_page', '1', $shop_url );
+		}
+
+		// Fallback to /auctions/ if rewrite rules are set up
+		return home_url( '/auctions/' );
+	}
+
+	/**
+	 * Setup navigation menu item properties.
+	 *
+	 * @param object $menu_item Menu item object.
+	 * @return object
+	 */
+	public function setup_nav_menu_item( $menu_item ) {
+		if ( isset( $menu_item->url ) && strpos( $menu_item->url, 'auction_page=1' ) !== false ) {
+			$menu_item->type_label = __( 'Auctions Page', 'auction' );
+		} elseif ( isset( $menu_item->url ) && strpos( $menu_item->url, '/auctions' ) !== false ) {
+			$menu_item->type_label = __( 'Auctions Page', 'auction' );
+		}
+
+		return $menu_item;
+	}
+
+	/**
+	 * Add active classes to auction menu items.
+	 *
+	 * @param array $menu_items Menu items.
+	 * @return array
+	 */
+	public function nav_menu_item_classes( array $menu_items ): array {
+		// Check if we're on auction page
+		$is_auction_page = false;
+		if ( isset( $_GET['auction_page'] ) && '1' === $_GET['auction_page'] ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$is_auction_page = true;
+		}
+
+		// Check query var from rewrite rule
+		global $wp_query;
+		if ( ! $is_auction_page && $wp_query && $wp_query->get( 'auction_page' ) === '1' ) {
+			$is_auction_page = true;
+		}
+
+		if ( ! $is_auction_page ) {
+			return $menu_items;
+		}
+
+		// Add active classes to auction menu items
+		foreach ( $menu_items as $key => $menu_item ) {
+			$classes = (array) $menu_item->classes;
+
+			// Check if this menu item links to auctions
+			if ( isset( $menu_item->url ) && ( strpos( $menu_item->url, 'auction_page=1' ) !== false || strpos( $menu_item->url, '/auctions' ) !== false ) ) {
+				$menu_items[ $key ]->current = true;
+				$classes[]                   = 'current-menu-item';
+				$classes[]                   = 'current_page_item';
+			}
+
+			$menu_items[ $key ]->classes = array_unique( $classes );
+		}
+
+		return $menu_items;
 	}
 
 	/**
@@ -553,25 +777,126 @@ class Auction_Frontend {
 		$hide_future       = Auction_Settings::is_enabled( 'hide_future' );
 		$hide_out_of_stock = Auction_Settings::is_enabled( 'hide_out_of_stock' );
 		$show_shop         = Auction_Settings::is_enabled( 'show_on_shop', true );
+		$display_mode      = Auction_Settings::get( 'product_display_mode', 'all' );
 
 		if ( $query->is_post_type_archive( 'product' ) || $query->is_tax( get_object_taxonomies( 'product' ) ) ) {
 			$meta_query = (array) $query->get( 'meta_query', array() );
-			$meta_query = $this->ensure_auction_enabled_meta_query( $meta_query );
 
-			if ( ! $show_shop && $query->is_post_type_archive( 'product' ) ) {
-				$meta_query[] = array(
-					'relation' => 'OR',
-					array(
-						'key'     => '_auction_enabled',
-						'compare' => 'NOT EXISTS',
-					),
-					array(
-						'key'     => '_auction_enabled',
-						'value'   => 'yes',
-						'compare' => '!=',
-					),
-				);
+			// Check if we're on the auction page (via query parameter or query var)
+			$is_auction_page = false;
+			
+			// Check query var first (set via URL parameter ?auction_page=1)
+			$auction_page_var = $query->get( 'auction_page' );
+			if ( $auction_page_var && '1' === $auction_page_var ) {
+				$is_auction_page = true;
 			}
+			
+			// Also check $_GET for compatibility
+			if ( ! $is_auction_page && isset( $_GET['auction_page'] ) && '1' === $_GET['auction_page'] ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				$is_auction_page = true;
+			}
+			
+			// Also check if we're on a page with slug 'auctions'
+			if ( ! $is_auction_page && $query->is_page() ) {
+				$queried_object = get_queried_object();
+				if ( $queried_object && isset( $queried_object->post_name ) && 'auctions' === $queried_object->post_name ) {
+					$is_auction_page = true;
+				}
+			}
+
+			// Determine which filtering to use: new shop/auction page system or legacy display_mode
+			if ( $is_auction_page ) {
+				// Auction page: Show ALL auction products (regardless of buy now setting)
+				// This ensures products with both buy and bid options appear on auction page
+				$meta_query[] = array(
+					'key'   => '_auction_enabled',
+					'value' => 'yes',
+				);
+			} else {
+				// Legacy system: Use display_mode setting
+				if ( 'all' !== $display_mode ) {
+					switch ( $display_mode ) {
+						case 'buy_only':
+							// Only show products without auction enabled
+							$meta_query[] = array(
+								'relation' => 'OR',
+								array(
+									'key'     => '_auction_enabled',
+									'compare' => 'NOT EXISTS',
+								),
+								array(
+									'key'     => '_auction_enabled',
+									'value'   => 'yes',
+									'compare' => '!=',
+								),
+							);
+							break;
+
+						case 'auction_only':
+							// Only show auction products
+							$meta_query[] = array(
+								'key'   => '_auction_enabled',
+								'value' => 'yes',
+							);
+							break;
+
+						case 'auction_with_buy_now':
+							// Only show auction products with buy now enabled
+							$meta_query[] = array(
+								'relation' => 'AND',
+								array(
+									'key'   => '_auction_enabled',
+									'value' => 'yes',
+								),
+								array(
+									'key'   => '_auction_buy_now_enabled',
+									'value' => 'yes',
+								),
+							);
+							break;
+
+						case 'auction_without_buy_now':
+							// Only show auction products without buy now enabled
+							$meta_query[] = array(
+								'relation' => 'AND',
+								array(
+									'key'   => '_auction_enabled',
+									'value' => 'yes',
+								),
+								array(
+									'relation' => 'OR',
+									array(
+										'key'     => '_auction_buy_now_enabled',
+										'compare' => 'NOT EXISTS',
+									),
+									array(
+										'key'     => '_auction_buy_now_enabled',
+										'value'   => 'yes',
+										'compare' => '!=',
+									),
+								),
+							);
+							break;
+					}
+				} elseif ( ! $show_shop && $query->is_post_type_archive( 'product' ) ) {
+					// Legacy behavior: respect show_on_shop setting
+					// Hide auction products when show_on_shop is disabled
+					$meta_query[] = array(
+						'relation' => 'OR',
+						array(
+							'key'     => '_auction_enabled',
+							'compare' => 'NOT EXISTS',
+						),
+						array(
+							'key'     => '_auction_enabled',
+							'value'   => 'yes',
+							'compare' => '!=',
+						),
+					);
+				}
+				// When show_on_shop is enabled and display_mode is 'all', show all products (no filter needed)
+			}
+
 			$current_time = current_time( 'mysql' );
 
 			if ( $hide_ended ) {
@@ -623,6 +948,68 @@ class Auction_Frontend {
 
 			$query->set( 'meta_query', $meta_query );
 		}
+	}
+
+	/**
+	 * Filter buy shop products using WHERE clause (more efficient than complex meta_query).
+	 *
+	 * @param string   $where The WHERE clause of the query.
+	 * @param WP_Query $query The WP_Query instance.
+	 * @return string
+	 */
+	public function filter_buy_shop_products_where( string $where, WP_Query $query ): string {
+		if ( is_admin() || ! $query->is_main_query() ) {
+			return $where;
+		}
+
+		// Only apply on shop page, not category pages
+		if ( ! ( $query->is_post_type_archive( 'product' ) && ! $query->is_tax() ) ) {
+			return $where;
+		}
+
+		// Check if we're on auction page - if so, don't filter
+		$is_auction_page = false;
+		
+		// Check query var (from rewrite rule)
+		$auction_page_var = $query->get( 'auction_page' );
+		if ( $auction_page_var && '1' === $auction_page_var ) {
+			$is_auction_page = true;
+		}
+		
+		// Check $_GET for compatibility
+		if ( ! $is_auction_page && isset( $_GET['auction_page'] ) && '1' === $_GET['auction_page'] ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$is_auction_page = true;
+		}
+
+		// Only filter on regular shop page when display_mode is 'all'
+		$display_mode = Auction_Settings::get( 'product_display_mode', 'all' );
+		if ( $is_auction_page || 'all' !== $display_mode ) {
+			return $where;
+		}
+
+		global $wpdb;
+
+		// Filter: Show products WITHOUT auction OR products WITH auction + buy now enabled
+		// This SQL ensures products with both buy and bid options appear on buy shop page
+		$where .= " AND (
+			NOT EXISTS (
+				SELECT 1 FROM {$wpdb->postmeta} pm1 
+				WHERE pm1.post_id = {$wpdb->posts}.ID 
+				AND pm1.meta_key = '_auction_enabled' 
+				AND pm1.meta_value = 'yes'
+			)
+			OR EXISTS (
+				SELECT 1 FROM {$wpdb->postmeta} pm2 
+				INNER JOIN {$wpdb->postmeta} pm3 ON pm2.post_id = pm3.post_id
+				WHERE pm2.post_id = {$wpdb->posts}.ID 
+				AND pm2.meta_key = '_auction_enabled' 
+				AND pm2.meta_value = 'yes'
+				AND pm3.meta_key = '_auction_buy_now_enabled' 
+				AND pm3.meta_value = 'yes'
+			)
+		)";
+
+		return $where;
 	}
 
 	/**
@@ -1219,6 +1606,272 @@ class Auction_Frontend {
 		}
 
 		return new WP_Query( $query_args );
+	}
+
+	/**
+	 * Organize products into sections when display mode is 'all'.
+	 *
+	 * @param array    $posts Array of post objects.
+	 * @param WP_Query $query Query instance.
+	 *
+	 * @return array
+	 */
+	public function organize_products_by_sections( array $posts, WP_Query $query ): array {
+		// Only apply on shop pages
+		if ( is_admin() || ! $query->is_main_query() ) {
+			return $posts;
+		}
+
+		if ( ! ( $query->is_post_type_archive( 'product' ) || $query->is_tax( get_object_taxonomies( 'product' ) ) ) ) {
+			return $posts;
+		}
+
+		$display_mode = Auction_Settings::get( 'product_display_mode', 'all' );
+
+		// Only organize when display mode is 'all'
+		if ( 'all' !== $display_mode ) {
+			return $posts;
+		}
+
+		// Organize products into sections
+		$products_without_auction = array();
+		$products_auction_only     = array();
+		$products_auction_buy_now = array();
+
+		foreach ( $posts as $post ) {
+			$product = wc_get_product( $post->ID );
+
+			if ( ! $product ) {
+				continue;
+			}
+
+			$is_auction = Auction_Product_Helper::is_auction_product( $product );
+
+			if ( ! $is_auction ) {
+				// Product without auction
+				$products_without_auction[] = $post;
+			} else {
+				// Check if it has buy now enabled
+				$config = Auction_Product_Helper::get_config( $product );
+				if ( ! empty( $config['buy_now_enabled'] ) && 'yes' === $config['buy_now_enabled'] ) {
+					// Auction product with buy now
+					$products_auction_buy_now[] = $post;
+				} else {
+					// Auction product without buy now
+					$products_auction_only[] = $post;
+				}
+			}
+		}
+
+		// Combine products in order: without auction, auction only, auction with buy now
+		$organized_posts = array_merge(
+			$products_without_auction,
+			$products_auction_only,
+			$products_auction_buy_now
+		);
+
+		// Store section information for display
+		$section_info = array(
+			'without_auction_start' => 0,
+			'without_auction_count'  => count( $products_without_auction ),
+			'auction_only_start'     => count( $products_without_auction ),
+			'auction_only_count'     => count( $products_auction_only ),
+			'auction_buy_now_start'  => count( $products_without_auction ) + count( $products_auction_only ),
+			'auction_buy_now_count'  => count( $products_auction_buy_now ),
+		);
+
+		// Store in query for later use
+		$query->set( 'auction_section_info', $section_info );
+
+		return $organized_posts;
+	}
+
+	/**
+	 * Output first section header before shop loop.
+	 *
+	 * @return void
+	 */
+	public function maybe_output_first_section_header(): void {
+		global $wp_query;
+
+		if ( ! $wp_query || ! $wp_query->is_main_query() ) {
+			return;
+		}
+
+		$display_mode = Auction_Settings::get( 'product_display_mode', 'all' );
+
+		if ( 'all' !== $display_mode ) {
+			return;
+		}
+
+		// Try to get section_info from query
+		$section_info = $wp_query->get( 'auction_section_info' );
+
+		// If not available yet, try to get it from the organized posts
+		if ( ! $section_info && $wp_query->posts ) {
+			// Reorganize to get section info
+			$section_info = $this->calculate_section_info( $wp_query->posts );
+		}
+
+		if ( ! $section_info ) {
+			return;
+		}
+
+		// Output header for first section (products without auction) if it exists
+		if ( isset( $section_info['without_auction_count'] ) && $section_info['without_auction_count'] > 0 ) {
+			echo '<h2 class="auction-section-title" style="margin: 30px 0 20px; padding: 15px 0; font-size: 24px; font-weight: bold; border-bottom: 2px solid #e0e0e0; clear: both;">' . esc_html__( 'All Products', 'auction' ) . '</h2>';
+		}
+	}
+
+	/**
+	 * Calculate section info from posts array.
+	 *
+	 * @param array $posts Array of post objects.
+	 * @return array|null
+	 */
+	private function calculate_section_info( array $posts ): ?array {
+		$products_without_auction = array();
+		$products_auction_only     = array();
+		$products_auction_buy_now = array();
+
+		foreach ( $posts as $post ) {
+			$post_id = is_object( $post ) ? $post->ID : ( is_array( $post ) ? ( $post['ID'] ?? $post['id'] ?? 0 ) : $post );
+			$product = wc_get_product( $post_id );
+
+			if ( ! $product ) {
+				continue;
+			}
+
+			$is_auction = Auction_Product_Helper::is_auction_product( $product );
+
+			if ( ! $is_auction ) {
+				$products_without_auction[] = $post;
+			} else {
+				$config = Auction_Product_Helper::get_config( $product );
+				if ( ! empty( $config['buy_now_enabled'] ) && 'yes' === $config['buy_now_enabled'] ) {
+					$products_auction_buy_now[] = $post;
+				} else {
+					$products_auction_only[] = $post;
+				}
+			}
+		}
+
+		return array(
+			'without_auction_start' => 0,
+			'without_auction_count'  => count( $products_without_auction ),
+			'auction_only_start'     => count( $products_without_auction ),
+			'auction_only_count'     => count( $products_auction_only ),
+			'auction_buy_now_start'  => count( $products_without_auction ) + count( $products_auction_only ),
+			'auction_buy_now_count'  => count( $products_auction_buy_now ),
+		);
+	}
+
+	/**
+	 * Output section header before product if needed.
+	 * This runs in woocommerce_shop_loop hook, before the product template is rendered.
+	 *
+	 * @return void
+	 */
+	public function maybe_output_section_header(): void {
+		global $wp_query, $post;
+
+		if ( ! $wp_query || ! $wp_query->is_main_query() ) {
+			return;
+		}
+
+		$display_mode = Auction_Settings::get( 'product_display_mode', 'all' );
+
+		if ( 'all' !== $display_mode ) {
+			return;
+		}
+
+		if ( ! $post ) {
+			return;
+		}
+
+		// Get the current product
+		$product = wc_get_product( $post->ID ?? $post );
+
+		if ( ! $product ) {
+			return;
+		}
+
+		// Determine product type directly
+		$is_auction = Auction_Product_Helper::is_auction_product( $product );
+		$has_buy_now = false;
+
+		if ( $is_auction ) {
+			// Check buy now enabled directly from meta
+			$buy_now_meta = $product->get_meta( '_auction_buy_now_enabled', true );
+			$has_buy_now = 'yes' === $buy_now_meta;
+		}
+
+		// Determine current product category
+		$current_category = 'regular';
+		if ( $is_auction ) {
+			$current_category = $has_buy_now ? 'auction_buy_now' : 'auction_only';
+		}
+
+		// Use a static array to track previous product category and which headers we've shown
+		static $section_data = array();
+
+		// Reset on new query
+		$query_hash = $wp_query->query_vars_hash ?? md5( serialize( $wp_query->query_vars ) );
+		if ( ! isset( $section_data[ $query_hash ] ) ) {
+			$section_data[ $query_hash ] = array(
+				'previous_category' => null,
+				'headers_shown'      => array(
+					'without_auction' => false,
+					'auction_only'    => false,
+					'auction_buy_now' => false,
+				),
+			);
+		}
+
+		$data = &$section_data[ $query_hash ];
+
+		// Check if we need to show a header
+		$should_show_header = false;
+		$header_type = '';
+
+		// If this is the first product and it's not regular, show header
+		// If category changed from regular to auction, show header
+		// If category changed from auction_only to auction_buy_now, show header
+		if ( null === $data['previous_category'] ) {
+			// First product in loop - if it's auction, show header (regular header is shown in maybe_output_first_section_header)
+			if ( 'auction_only' === $current_category && ! $data['headers_shown']['auction_only'] ) {
+				$should_show_header = true;
+				$header_type = 'auction_only';
+			} elseif ( 'auction_buy_now' === $current_category && ! $data['headers_shown']['auction_buy_now'] ) {
+				$should_show_header = true;
+				$header_type = 'auction_buy_now';
+			}
+		} elseif ( $data['previous_category'] !== $current_category ) {
+			// Category changed - show header for auction categories only
+			if ( 'auction_only' === $current_category && ! $data['headers_shown']['auction_only'] ) {
+				$should_show_header = true;
+				$header_type = 'auction_only';
+			} elseif ( 'auction_buy_now' === $current_category && ! $data['headers_shown']['auction_buy_now'] ) {
+				$should_show_header = true;
+				$header_type = 'auction_buy_now';
+			}
+		}
+
+		// Output the header if needed - close current list, show header, open new list
+		if ( $should_show_header ) {
+			echo '</ul>';
+			if ( 'auction_only' === $header_type ) {
+				echo '<h2 class="auction-section-title" style="margin: 30px 0 20px; padding: 15px 0; font-size: 24px; font-weight: bold; border-bottom: 2px solid #e0e0e0; clear: both;">' . esc_html__( 'Auction Products', 'auction' ) . '</h2>';
+				$data['headers_shown']['auction_only'] = true;
+			} elseif ( 'auction_buy_now' === $header_type ) {
+				echo '<h2 class="auction-section-title" style="margin: 30px 0 20px; padding: 15px 0; font-size: 24px; font-weight: bold; border-bottom: 2px solid #e0e0e0; clear: both;">' . esc_html__( 'Auction Products with Buy Now', 'auction' ) . '</h2>';
+				$data['headers_shown']['auction_buy_now'] = true;
+			}
+			echo '<ul class="products columns-' . esc_attr( wc_get_loop_prop( 'columns' ) ) . '">';
+		}
+
+		// Update previous category for next iteration
+		$data['previous_category'] = $current_category;
 	}
 }
 

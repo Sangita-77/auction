@@ -115,6 +115,30 @@ class Auction_Loader {
 
 		Auction_Event_Manager::instance();
 		Auction_Account::instance();
+
+		// Try to create menu item if needed (after everything is loaded)
+		if ( get_option( 'auction_force_create_menu', false ) || get_option( 'auction_should_create_menu', false ) ) {
+			add_action( 'wp_loaded', array( __CLASS__, 'maybe_create_auction_menu' ), 999 );
+			add_action( 'admin_init', array( __CLASS__, 'maybe_create_auction_menu' ), 999 );
+		}
+	}
+
+	/**
+	 * Maybe create auction menu item.
+	 *
+	 * @return void
+	 */
+	public static function maybe_create_auction_menu(): void {
+		// Check if already created
+		$created = get_option( 'auction_menu_item_created', false );
+		if ( $created ) {
+			delete_option( 'auction_should_create_menu' );
+			delete_option( 'auction_force_create_menu' );
+			return;
+		}
+
+		// Try to create
+		$result = Auction_Install::create_menu_item_manually();
 	}
 }
 

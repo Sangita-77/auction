@@ -204,3 +204,15 @@ if ( ! function_exists( 'twentytwentyfour_pattern_categories' ) ) :
 endif;
 
 add_action( 'init', 'twentytwentyfour_pattern_categories' );
+
+
+function mytheme_theme_setup() {
+    add_theme_support('title-tag');
+    add_theme_support('post-thumbnails');
+    add_theme_support('menus');
+    register_nav_menus([
+        'primary' => __('Primary Menu', 'jimenezmrdiscount'),
+    ]);
+}
+
+add_action('after_setup_theme', 'mytheme_theme_setup');

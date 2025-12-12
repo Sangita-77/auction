@@ -108,6 +108,37 @@ class Auction_Admin_Menu {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'auction' ) );
 		}
 
+		// Auto-create menu item when dashboard is accessed
+		// Always try to ensure it's in the header menu
+		require_once __DIR__ . '/../../class-auction-install.php';
+		
+		// Check if menu item exists in the menu assigned to header
+		$menu_item_in_header = false;
+		$locations = get_nav_menu_locations();
+		$menu_locations = array( 'primary', 'header', 'main', 'menu-1', 'primary-menu', 'top', 'navigation' );
+		
+		foreach ( $menu_locations as $location ) {
+			if ( isset( $locations[ $location ] ) && $locations[ $location ] > 0 ) {
+				$header_menu_id = $locations[ $location ];
+				$menu_items = wp_get_nav_menu_items( $header_menu_id );
+				if ( $menu_items ) {
+					foreach ( $menu_items as $item ) {
+						if ( isset( $item->url ) && ( strpos( $item->url, 'auction_page=1' ) !== false || strpos( $item->url, '/auctions' ) !== false ) ) {
+							$menu_item_in_header = true;
+							break 2;
+						}
+					}
+				}
+				break;
+			}
+		}
+		
+		// If not in header menu, create it
+		if ( ! $menu_item_in_header ) {
+			delete_option( 'auction_menu_item_created' ); // Force recreation
+			Auction_Install::create_menu_item_manually();
+		}
+
 		$filters    = $this->get_dashboard_filters();
 		$rows       = $this->get_auction_rows( $filters );
 		$export_url = $this->get_export_url( $filters );
@@ -124,7 +155,56 @@ class Auction_Admin_Menu {
 				<a class="button" href="<?php echo esc_url( $export_url ); ?>">
 					<?php esc_html_e( 'Export CSV', 'auction' ); ?>
 				</a>
+				<a class="button button-secondary" href="<?php echo esc_url( admin_url( 'admin.php?page=auction-dashboard&create_menu_item=1' ) ); ?>">
+					<?php esc_html_e( 'Create Auction Menu Item', 'auction' ); ?>
+				</a>
 			</p>
+			
+			<?php
+			// Check if menu item exists and menu is assigned
+			$menu_item_exists = false;
+			$menu_assigned = false;
+			$all_menus = wp_get_nav_menus();
+			$locations = get_nav_menu_locations();
+			
+			foreach ( $all_menus as $menu ) {
+				$menu_items = wp_get_nav_menu_items( $menu->term_id );
+				if ( $menu_items ) {
+					foreach ( $menu_items as $item ) {
+						if ( isset( $item->url ) && ( strpos( $item->url, 'auction_page=1' ) !== false || strpos( $item->url, '/auctions' ) !== false ) ) {
+							$menu_item_exists = true;
+							// Check if this menu is assigned to a location
+							foreach ( $locations as $loc_menu_id ) {
+								if ( (int) $loc_menu_id === (int) $menu->term_id ) {
+									$menu_assigned = true;
+									break 2;
+								}
+							}
+						}
+					}
+				}
+			}
+			
+			if ( $menu_item_exists && ! $menu_assigned ) :
+				?>
+				<div class="notice notice-warning" style="margin-top: 20px;">
+					<p>
+						<strong><?php esc_html_e( 'Important:', 'auction' ); ?></strong>
+						<?php esc_html_e( 'The Auction menu item exists but the menu is not assigned to a header location. Click the button above to fix this.', 'auction' ); ?>
+					</p>
+				</div>
+				<?php
+			elseif ( ! $menu_item_exists ) :
+				?>
+				<div class="notice notice-info" style="margin-top: 20px;">
+					<p>
+						<strong><?php esc_html_e( 'Setup:', 'auction' ); ?></strong>
+						<?php esc_html_e( 'Click the "Create Auction Menu Item" button above to automatically add the Auction link to your navigation menu.', 'auction' ); ?>
+					</p>
+				</div>
+				<?php
+			endif;
+			?>
 
 			<form method="get" class="auction-admin-filters">
 				<input type="hidden" name="page" value="auction-dashboard" />
@@ -1214,6 +1294,19 @@ class Auction_Admin_Menu {
 						'label'       => __( 'Show auctions on the shop page', 'auction' ),
 						'description' => __( 'Enable to show auction products in the shop page. If disabled, all auctions will be shown only in the page with the auction shortcode.', 'auction' ),
 						'default'     => 'yes',
+					),
+					'product_display_mode'          => array(
+						'type'        => 'select',
+						'label'       => __( 'Product display mode', 'auction' ),
+						'description' => __( 'Choose which products to display on the shop page: only buy products (without auction), only auction products, auction products with buy now button, or auction products without buy now option.', 'auction' ),
+						'options'     => array(
+							'all'                    => __( 'All products (default)', 'auction' ),
+							'buy_only'               => __( 'Only buy products (without auction)', 'auction' ),
+							'auction_only'           => __( 'Only auction products', 'auction' ),
+							'auction_with_buy_now'   => __( 'Auction products with buy now button', 'auction' ),
+							'auction_without_buy_now' => __( 'Auction products without buy now option', 'auction' ),
+						),
+						'default'     => 'all',
 					),
 					'hide_out_of_stock'             => array(
 						'type'        => 'checkbox',
