@@ -1718,9 +1718,9 @@ class Auction_Frontend {
 		}
 
 		// Output header for first section (products without auction) if it exists
-		if ( isset( $section_info['without_auction_count'] ) && $section_info['without_auction_count'] > 0 ) {
-			echo '<h2 class="auction-section-title" style="margin: 30px 0 20px; padding: 15px 0; font-size: 24px; font-weight: bold; border-bottom: 2px solid #e0e0e0; clear: both;">' . esc_html__( 'All Products', 'auction' ) . '</h2>';
-		}
+		// if ( isset( $section_info['without_auction_count'] ) && $section_info['without_auction_count'] > 0 ) {
+		// 	echo '<h2 class="auction-section-title" style="margin: 30px 0 20px; padding: 15px 0; font-size: 24px; font-weight: bold; border-bottom: 2px solid #e0e0e0; clear: both;">' . esc_html__( 'All Products', 'auction' ) . '</h2>';
+		// }
 	}
 
 	/**
