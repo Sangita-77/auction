@@ -1,4 +1,10 @@
 ( function ( $, config ) {
+	function decodeHtmlEntity( str ) {
+		var textarea = document.createElement( 'textarea' );
+		textarea.innerHTML = str;
+		return textarea.value;
+	}
+
 	function formatCurrency( amount ) {
 		var decimals = parseInt( config.currency.decimals, 10 );
 		var decimalSep = config.currency.decimal_separator || '.';
@@ -11,15 +17,18 @@
 
 		formatted = parts.join( decimalSep );
 
+		// Decode HTML entities in currency symbol (e.g., &#8377; becomes ₹)
+		var symbol = decodeHtmlEntity( config.currency.symbol );
+
 		switch ( config.currency.position ) {
 			case 'right':
-				return formatted + config.currency.symbol;
+				return formatted + symbol;
 			case 'left_space':
-				return config.currency.symbol + ' ' + formatted;
+				return symbol + ' ' + formatted;
 			case 'right_space':
-				return formatted + ' ' + config.currency.symbol;
+				return formatted + ' ' + symbol;
 			default:
-				return config.currency.symbol + formatted;
+				return symbol + formatted;
 		}
 	}
 

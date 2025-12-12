@@ -465,7 +465,7 @@ class Auction_Frontend {
 				'session_id'     => $this->get_or_set_session_id(),
 				'register_form'  => $this->get_registration_form_markup( array(), false ),
 				'currency'       => array(
-					'symbol'             => get_woocommerce_currency_symbol(),
+					'symbol'             => html_entity_decode( get_woocommerce_currency_symbol(), ENT_QUOTES | ENT_HTML5, 'UTF-8' ),
 					'position'           => get_option( 'woocommerce_currency_pos', 'left' ),
 					'decimals'           => wc_get_price_decimals(),
 					'decimal_separator'  => wc_get_price_decimal_separator(),
