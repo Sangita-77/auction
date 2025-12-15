@@ -306,17 +306,17 @@
 				return;
 			}
 
-			var hours = Math.floor( diff / 3600 );
+			// Show countdown as "DDd HHh MMm" (no seconds).
+			var days    = Math.floor( diff / 86400 ); // 60 * 60 * 24
+			var hours   = Math.floor( ( diff % 86400 ) / 3600 );
 			var minutes = Math.floor( ( diff % 3600 ) / 60 );
-			var seconds = diff % 60;
 
-			var parts = [
-				String( hours ).padStart( 2, '0' ),
-				String( minutes ).padStart( 2, '0' ),
-				String( seconds ).padStart( 2, '0' ),
-			];
+			var text =
+				String( days ).padStart( 2, '0' ) + 'd ' +
+				String( hours ).padStart( 2, '0' ) + 'h ' +
+				String( minutes ).padStart( 2, '0' ) + 'm';
 
-			$el.text( parts.join( ':' ) );
+			$el.text( text );
 		}
 
 		setInterval( function () {
