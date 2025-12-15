@@ -324,6 +324,13 @@ function auction_products_shortcode( $atts ) {
 		wp_enqueue_script( 'auction-frontend' );
 	}
 
+	// Temporarily remove the auction loop badge hook to prevent duplication
+	$auction_frontend = null;
+	if ( class_exists( 'Auction_Frontend' ) ) {
+		$auction_frontend = Auction_Frontend::instance();
+		remove_action( 'woocommerce_after_shop_loop_item', array( $auction_frontend, 'render_loop_badge' ), 20 );
+	}
+
 	ob_start();
 
 	// Start output
@@ -495,6 +502,11 @@ function auction_products_shortcode( $atts ) {
 	echo '</div>';
 
 	wp_reset_postdata();
+
+	// Restore the auction loop badge hook
+	if ( $auction_frontend ) {
+		add_action( 'woocommerce_after_shop_loop_item', array( $auction_frontend, 'render_loop_badge' ), 20 );
+	}
 
 	return ob_get_clean();
 }
