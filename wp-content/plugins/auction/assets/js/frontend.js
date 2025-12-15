@@ -290,12 +290,17 @@
 
 			if ( diff <= 0 ) {
 				$el.text( '--:--:--' );
-				var $productCard = $el.closest( '.product, .woocommerce-product, .wc-block-grid__product' );
 
-				if ( $productCard.length && ! $productCard.data( 'auction-hidden' ) ) {
-					$productCard
-						.data( 'auction-hidden', true )
-						.css( 'display', 'none' );
+				// Only hide product cards on archive/listing pages, not on single product pages.
+				// On single product pages, we still want to show the ended auction details.
+				if ( ! $( 'body' ).hasClass( 'single-product' ) ) {
+					var $productCard = $el.closest( '.product, .woocommerce-product, .wc-block-grid__product' );
+
+					if ( $productCard.length && ! $productCard.data( 'auction-hidden' ) ) {
+						$productCard
+							.data( 'auction-hidden', true )
+							.css( 'display', 'none' );
+					}
 				}
 
 				return;

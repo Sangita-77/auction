@@ -126,6 +126,12 @@ class Auction_Frontend {
 		add_filter( 'woocommerce_product_single_add_to_cart_text', array( $this, 'filter_add_to_cart_text' ), 10, 2 );
 		add_filter( 'woocommerce_product_add_to_cart_text', array( $this, 'filter_add_to_cart_text' ), 10, 2 );
 		add_filter( 'woocommerce_loop_add_to_cart_link', array( $this, 'filter_loop_add_to_cart_link' ), 10, 2 );
+
+		// Ensure that when an auction has a Buy Now price configured, that price is used
+		// instead of the normal/discounted WooCommerce price.
+		add_filter( 'woocommerce_product_get_price', array( $this, 'maybe_use_auction_buy_now_price' ), 99, 2 );
+		add_filter( 'woocommerce_product_get_regular_price', array( $this, 'maybe_use_auction_buy_now_price' ), 99, 2 );
+		add_filter( 'woocommerce_product_get_sale_price', array( $this, 'maybe_use_auction_buy_now_price' ), 99, 2 );
 		add_filter( 'woocommerce_is_sold_individually', array( $this, 'disable_quantity_option' ), 10, 2 );
 		add_filter( 'woocommerce_related_products', array( $this, 'filter_related_product_ids' ), 10, 3 );
 		
@@ -505,27 +511,8 @@ class Auction_Frontend {
 
 		$config = Auction_Product_Helper::get_config( $product );
 
-		if ( 'ended' !== Auction_Product_Helper::get_auction_status( $config ) ) {
-			return;
-		}
-
-		$winner_id = absint( $product->get_meta( '_auction_winner_user_id', true ) );
-
-		if ( $winner_id && get_current_user_id() === $winner_id ) {
-			return;
-		}
-
-		if ( current_user_can( 'manage_options' ) ) {
-			return;
-		}
-
-		global $wp_query;
-
-		$wp_query->set_404();
-		status_header( 404 );
-		nocache_headers();
-		include get_query_template( '404' );
-		exit;
+		// Always allow viewing ended auctions (do not block with 404)
+		return;
 	}
 
 	/**
@@ -549,21 +536,8 @@ class Auction_Frontend {
 
 		$config = Auction_Product_Helper::get_config( $product );
 
-		if ( 'ended' !== Auction_Product_Helper::get_auction_status( $config ) ) {
-			return $visible;
-		}
-
-		$winner_id = absint( $product->get_meta( '_auction_winner_user_id', true ) );
-
-		if ( $winner_id && get_current_user_id() === $winner_id ) {
-			return true;
-		}
-
-		if ( current_user_can( 'manage_options' ) ) {
-			return true;
-		}
-
-		return false;
+		// Always allow ended auctions to remain visible in frontend lists
+		return true;
 	}
 
 	/**
@@ -1189,6 +1163,41 @@ class Auction_Frontend {
 		}
 
 		return $html;
+	}
+
+	/**
+	 * Use the auction's Buy Now price as the product price when Buy Now is enabled.
+	 *
+	 * This ensures that if the admin has configured an _auction_buy_now_price,
+	 * that value is what customers see and pay when clicking the Buy Now button,
+	 * regardless of any regular/sale price set on the product.
+	 *
+	 * @param float      $price   The current price.
+	 * @param WC_Product $product The product object.
+	 *
+	 * @return float
+	 */
+	public function maybe_use_auction_buy_now_price( $price, WC_Product $product ) {
+		if ( ! $product instanceof WC_Product ) {
+			return $price;
+		}
+
+		if ( ! Auction_Product_Helper::is_auction_product( $product ) ) {
+			return $price;
+		}
+
+		$config = Auction_Product_Helper::get_config( $product );
+
+		// Only override when Buy Now is explicitly enabled and a positive price is set.
+		if ( ! empty( $config['buy_now_enabled'] ) ) {
+			$buy_now_price = Auction_Product_Helper::to_float( $config['buy_now_price'] ?? 0 );
+
+			if ( $buy_now_price > 0 ) {
+				return $buy_now_price;
+			}
+		}
+
+		return $price;
 	}
 
 	/**
