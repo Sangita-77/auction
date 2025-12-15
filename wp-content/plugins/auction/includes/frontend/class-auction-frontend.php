@@ -1108,10 +1108,12 @@ class Auction_Frontend {
 
 		$config = Auction_Product_Helper::get_config( $product );
 
+		// If Buy Now is not enabled, block direct purchase.
 		if ( ! $config['buy_now_enabled'] ) {
 			return false;
 		}
 
+		// Otherwise allow WooCommerce to treat it as purchasable (so Buy Now works).
 		return $purchasable;
 	}
 
@@ -1158,10 +1160,12 @@ class Auction_Frontend {
 
 		$config = Auction_Product_Helper::get_config( $product );
 
+		// When Buy Now is disabled, remove the loop add-to-cart link.
 		if ( ! $config['buy_now_enabled'] ) {
 			return '';
 		}
 
+		// When Buy Now is enabled, keep the default WooCommerce link (it will use our Buy Now text/price).
 		return $html;
 	}
 

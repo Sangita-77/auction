@@ -218,11 +218,32 @@ function mytheme_theme_setup() {
 add_action('after_setup_theme', 'mytheme_theme_setup');
 
 /**
+ * Hide Buy Now / add-to-cart buttons for auction products only inside the auction_products shortcode.
+ *
+ * @param string     $html    Original button HTML.
+ * @param WC_Product $product Product object.
+ *
+ * @return string
+ */
+function mytheme_auction_shortcode_hide_buy_now_button( $html, $product ) {
+	if ( ! $product instanceof WC_Product ) {
+		return $html;
+	}
+
+	if ( class_exists( 'Auction_Product_Helper' ) && Auction_Product_Helper::is_auction_product( $product ) ) {
+		// Inside the shortcode we don't want any Buy Now / add-to-cart buttons for auction items.
+		return '';
+	}
+
+	return $html;
+}
+
+/**
  * Auction Products Shortcode
  * Display auction products similar to auction page
- * 
+ *
  * Usage: [auction_products limit="12" columns="4"]
- * 
+ *
  * @param array $atts Shortcode attributes.
  * @return string
  */
@@ -357,44 +378,16 @@ function auction_products_shortcode( $atts ) {
 		$start_timestamp = $config['start_timestamp'] ?: 0;
 		$end_timestamp   = $config['end_timestamp'] ?: 0;
 
-		// Get bid information
-		$state = Auction_Product_Helper::get_runtime_state( $product );
+		// Get bid information.
+		$state       = Auction_Product_Helper::get_runtime_state( $product );
 		$current_bid = $state['winning_bid_id'] ? $state['current_bid'] : Auction_Product_Helper::get_start_price( $config );
 		$current_bid = $current_bid > 0 ? $current_bid : 0;
 
-		// Get total bid count
-		$all_bids = Auction_Bid_Manager::get_bid_history( $product->get_id(), 1000, true );
-		$total_bids = count( $all_bids );
-
-		// Get high bidder name
-		$leading_bid = Auction_Bid_Manager::get_leading_bid( $product->get_id() );
-		$high_bidder_name = __( 'No bids yet', 'auction' );
-		if ( $leading_bid ) {
-			if ( 'yes' === ( $config['sealed'] ?? 'no' ) ) {
-				$high_bidder_name = __( 'Hidden (sealed auction)', 'auction' );
-			} elseif ( ! empty( $leading_bid['user_id'] ) ) {
-				$user = get_user_by( 'id', absint( $leading_bid['user_id'] ) );
-				if ( $user ) {
-					$display_type = Auction_Settings::get( 'bid_username_display', 'masked' );
-					$name = $user->display_name ?: $user->user_login;
-					if ( 'full' === $display_type ) {
-						$high_bidder_name = $name;
-					} else {
-						$high_bidder_name = mb_substr( $name, 0, 1 ) . '****' . mb_substr( $name, -1 );
-					}
-				}
-			} elseif ( ! empty( $leading_bid['session_id'] ) ) {
-				$high_bidder_name = __( 'Guest bidder', 'auction' );
-			}
-		}
-
-		// Get min bid (start price)
-		$min_bid = Auction_Product_Helper::get_start_price( $config );
-
-		// Get bid increment
+		// Get bid increment and compute next bid.
 		$bid_increment = Auction_Product_Helper::get_manual_increment( $config );
+		$next_bid      = $state['winning_bid_id'] ? ( $current_bid + $bid_increment ) : max( $current_bid, $bid_increment );
 
-		// Get product URL
+		// Get product URL.
 		$product_url = get_permalink( $product->get_id() );
 
 		?>
@@ -433,62 +426,60 @@ function auction_products_shortcode( $atts ) {
 			<?php
 			/**
 			 * Hook: woocommerce_after_shop_loop_item.
+			 * Temporarily hide Buy Now / add-to-cart buttons for auction products inside this shortcode only.
 			 */
+			add_filter( 'woocommerce_loop_add_to_cart_link', 'mytheme_auction_shortcode_hide_buy_now_button', 999, 2 );
 			do_action( 'woocommerce_after_shop_loop_item' );
+			remove_filter( 'woocommerce_loop_add_to_cart_link', 'mytheme_auction_shortcode_hide_buy_now_button', 999 );
 			?>
 
-			<!-- Auction Information -->
-			<div class="auction-loop-meta" data-auction-product="<?php echo esc_attr( $product->get_id() ); ?>" data-auction-status="<?php echo esc_attr( $status ); ?>" <?php echo $end_timestamp ? 'data-auction-end="' . esc_attr( $end_timestamp ) . '"' : ''; ?>>
-				
-				<?php if ( method_exists( 'Auction_Settings', 'is_enabled' ) && Auction_Settings::is_enabled( 'custom_badge_enable' ) ) : ?>
-					<span class="auction-badge">
-						<?php
-						$badge_url = Auction_Settings::get( 'custom_badge_asset', '' );
-						if ( $badge_url ) {
-							echo '<img src="' . esc_url( $badge_url ) . '" alt="' . esc_attr__( 'Auction', 'auction' ) . '" />';
-						} else {
-							esc_html_e( 'Auction', 'auction' );
-						}
-						?>
-					</span>
-				<?php endif; ?>
-
+			<!-- Auction Information (below image and title) -->
+			<div class="auction-loop-meta"
+				data-auction-product="<?php echo esc_attr( $product->get_id() ); ?>"
+				data-auction-status="<?php echo esc_attr( $status ); ?>"
+				<?php echo $end_timestamp ? 'data-auction-end="' . esc_attr( $end_timestamp ) . '"' : ''; ?>
+			>
 				<div class="auction-loop-info">
-					
+
+					<div class="auction-info-row">
+						<strong><?php esc_html_e( 'High Bid:', 'auction' ); ?></strong>
+						<span class="auction-current-bid"><?php echo wp_kses_post( wc_price( $current_bid ) ); ?></span>
+					</div>
+
 					<?php if ( $end_timestamp ) : ?>
 						<div class="auction-info-row">
-							<strong><?php esc_html_e( 'Auction Ends:', 'auction' ); ?></strong>
-							<span class="auction-end-time"><?php echo esc_html( date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $end_timestamp ) ); ?></span>
-							<?php if ( method_exists( 'Auction_Settings', 'is_enabled' ) && Auction_Settings::is_enabled( 'show_countdown_loop' ) ) : ?>
-								<?php $start_attr = $start_timestamp ? ' data-countdown-start="' . esc_attr( $start_timestamp ) . '"' : ''; ?>
-								<span class="auction-countdown" data-countdown-target="<?php echo esc_attr( $end_timestamp ); ?>"<?php echo $start_attr; ?>></span>
-							<?php endif; ?>
+							<strong><?php esc_html_e( 'Time left:', 'auction' ); ?></strong>
+							<?php
+							// PHP-side fallback so the countdown is never blank even if JS fails.
+							$now      = current_time( 'timestamp' );
+							$diff     = max( 0, $end_timestamp - $now );
+							$days     = (int) floor( $diff / DAY_IN_SECONDS );
+							$hours    = (int) floor( ( $diff % DAY_IN_SECONDS ) / HOUR_IN_SECONDS );
+							$minutes  = (int) floor( ( $diff % HOUR_IN_SECONDS ) / MINUTE_IN_SECONDS );
+							$time_str = sprintf( '%02dd %02dh %02dm', $days, $hours, $minutes );
+
+							$start_attr = $start_timestamp ? ' data-countdown-start="' . esc_attr( $start_timestamp ) . '"' : '';
+							?>
+							<span
+								class="auction-countdown"
+								data-countdown-target="<?php echo esc_attr( $end_timestamp ); ?>"
+								<?php echo $start_attr; ?>
+							>
+								<?php echo esc_html( $time_str ); ?>
+							</span>
 						</div>
 					<?php endif; ?>
 
-					<div class="auction-info-row">
-						<strong><?php esc_html_e( 'Current Bid:', 'auction' ); ?></strong>
-						<span class="auction-current-bid"><?php echo wp_kses_post( wc_price( $current_bid ) ); ?></span>
-						<span class="auction-bid-count">(<?php esc_html_e( 'bids:', 'auction' ); ?> <?php echo esc_html( $total_bids ); ?>)</span>
-					</div>
-
-					<div class="auction-info-row">
-						<strong><?php esc_html_e( 'High Bidder:', 'auction' ); ?></strong>
-						<span class="auction-high-bidder"><?php echo esc_html( $high_bidder_name ); ?></span>
-					</div>
-
-					<div class="auction-info-row">
-						<strong><?php esc_html_e( 'Min Bid:', 'auction' ); ?></strong>
-						<span class="auction-min-bid"><?php echo wp_kses_post( wc_price( $min_bid ) ); ?></span>
-					</div>
-
-					<div class="auction-info-row">
-						<strong><?php esc_html_e( 'Bid Increment:', 'auction' ); ?></strong>
-						<span class="auction-bid-increment"><?php echo wp_kses_post( wc_price( $bid_increment ) ); ?></span>
-					</div>
-
 					<div class="auction-info-row auction-lot-details">
-						<a href="<?php echo esc_url( $product_url ); ?>" class="button auction-lot-details-btn"><?php esc_html_e( 'Lot Details', 'auction' ); ?></a>
+						<a href="<?php echo esc_url( $product_url ); ?>" class="button auction-bid-button">
+							<?php
+							/* translators: %s: next bid amount */
+							printf(
+								esc_html__( 'BID %s', 'auction' ),
+								wp_strip_all_tags( wc_price( $next_bid ) )
+							);
+							?>
+						</a>
 					</div>
 
 				</div>
