@@ -2159,6 +2159,8 @@ class Auction_Frontend {
 
 		echo '<section class="related related-auctions">';
 		echo '<h2>' . esc_html__( 'Related Auctions', 'auction' ) . '</h2>';
+		// Set columns to 5 for related auctions
+		wc_set_loop_prop( 'columns', 5 );
 		woocommerce_product_loop_start();
 
 		while ( $query->have_posts() ) {
