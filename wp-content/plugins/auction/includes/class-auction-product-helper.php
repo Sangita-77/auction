@@ -171,8 +171,10 @@ class Auction_Product_Helper {
 			return null;
 		}
 
+		// Always use WordPress timezone first, then fallback to UTC
+		$wp_timezone = wp_timezone();
 		$timezones = array(
-			wp_timezone(),
+			$wp_timezone,
 			new DateTimeZone( 'UTC' ),
 		);
 
@@ -195,6 +197,9 @@ class Auction_Product_Helper {
 			'd/m/Y H:i',
 			'd/m/Y h:i a',
 			'd/m/Y h:i A',
+			'F j, Y g:i a',  // December 16, 2025 1:02 pm
+			'F j, Y g:i A',  // December 16, 2025 1:02 PM
+			'F j, Y H:i',    // December 16, 2025 13:02
 		);
 
 		foreach ( $timezones as $timezone ) {
@@ -220,6 +225,18 @@ class Auction_Product_Helper {
 				} catch ( Exception $e ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
 					// Ignore and try next value.
 				}
+			}
+		}
+
+		// Final fallback: try parsing as natural language date string
+		if ( ! empty( $datetime ) ) {
+			$wp_timezone = wp_timezone();
+			try {
+				// DateTimeImmutable can parse many natural language formats
+				$dt = new DateTimeImmutable( $datetime, $wp_timezone );
+				return $dt->getTimestamp();
+			} catch ( Exception $e ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
+				// If DateTimeImmutable fails, return null
 			}
 		}
 
@@ -314,22 +331,25 @@ class Auction_Product_Helper {
 	 * @return string active|scheduled|ended
 	 */
 	public static function get_auction_status( array $config ): string {
-		$now        = current_time( 'timestamp' );
-		// print_r($now);
-		// echo "..................................";
-		$start_time = $config['start_timestamp'];
-		// print_r($start_time);
+		// Use WordPress timezone for current time
+		$wp_timezone = wp_timezone();
+		$now = new DateTimeImmutable( 'now', $wp_timezone );
+		$now_timestamp = $now->getTimestamp();
 
+		$start_time = $config['start_timestamp'];
 		$end_time   = $config['end_timestamp'];
 
-		if ( $start_time && $now < $start_time ) {
+		// If start_time is set and current time is before start time, it's scheduled
+		if ( $start_time && $now_timestamp < $start_time ) {
 			return 'scheduled';
 		}
 
-		if ( $end_time && $now > $end_time ) {
+		// If end_time is set and current time is after end time, it's ended
+		if ( $end_time && $now_timestamp > $end_time ) {
 			return 'ended';
 		}
 
+		// Otherwise, it's active (started but not ended)
 		return 'active';
 	}
 
