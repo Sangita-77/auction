@@ -113,7 +113,7 @@ class Auction_Frontend {
 		add_filter( 'wp_nav_menu_objects', array( $this, 'nav_menu_item_classes' ) );
 
 		add_action( 'woocommerce_single_product_summary', array( $this, 'render_single_product_auction_panel' ), 25 );
-		add_action( 'woocommerce_after_add_to_cart_button', array( $this, 'render_bid_history_table' ), 10 );
+		add_action( 'woocommerce_after_add_to_cart_form', array( $this, 'render_bid_history_table' ), 10 );
 		add_action( 'woocommerce_after_shop_loop_item', array( $this, 'render_loop_badge' ), 20 );
 		add_action( 'woocommerce_before_shop_loop', array( $this, 'maybe_output_first_section_header' ), 25 );
 		add_action( 'woocommerce_shop_loop', array( $this, 'maybe_output_section_header' ), 5 );
