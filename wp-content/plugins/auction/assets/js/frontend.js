@@ -139,16 +139,31 @@
 		var requiresLogin = !! Number( $panel.data( 'requires-login' ) );
 		var enableRegisterModal = !! Number( $panel.data( 'enable-register-modal' ) );
 
-		if ( $openBidButton.length ) {
-			$openBidButton.on( 'click', function () {
-				if ( requiresLogin ) {
-					showLoginModal( $loginModal );
-					return;
-				}
+		// Check if auction is ended - disable bid button for closed auctions
+		var $statusEl = $panel.find( '.auction-status' );
+		var auctionStatus = $statusEl.length ? $statusEl.data( 'auction-status' ) : '';
+		var isEnded = auctionStatus === 'ended';
 
-				$bidPanel.prop( 'hidden', false );
-				$openBidButton.prop( 'disabled', true );
-			} );
+		if ( $openBidButton.length ) {
+			// Disable bid button if auction is ended
+			if ( isEnded ) {
+				$openBidButton.prop( 'disabled', true ).addClass( 'disabled' );
+			} else {
+				$openBidButton.on( 'click', function () {
+					if ( requiresLogin ) {
+						showLoginModal( $loginModal );
+						return;
+					}
+
+					$bidPanel.prop( 'hidden', false );
+					$openBidButton.prop( 'disabled', true );
+				} );
+			}
+		}
+
+		// Disable bid form submission if auction is ended
+		if ( isEnded ) {
+			$form.find( 'button[type="submit"]' ).prop( 'disabled', true );
 		}
 
 		$form.on( 'change', 'input[name="is_auto"]', function () {
@@ -291,9 +306,21 @@
 			if ( diff <= 0 ) {
 				$el.text( '--:--:--' );
 
-				// Only hide product cards on archive/listing pages, not on single product pages.
-				// On single product pages, we still want to show the ended auction details.
-				if ( ! $( 'body' ).hasClass( 'single-product' ) ) {
+				// Check if we're on the auction page (where we want to show closed auctions if setting allows)
+				// Note: If "Hide ended auctions" setting is enabled, PHP query filters them out, so they won't be in DOM
+				var isAuctionPage = false;
+				// Check URL query parameter
+				if ( window.location.search.indexOf( 'auction_page=1' ) !== -1 ) {
+					isAuctionPage = true;
+				}
+				// Also check URL path for /auctions/ rewrite rule
+				if ( ! isAuctionPage && window.location.pathname.indexOf( '/auctions' ) !== -1 ) {
+					isAuctionPage = true;
+				}
+
+				// Only hide product cards on archive/listing pages, not on single product pages or auction page.
+				// On single product pages and auction page (when "Hide ended auctions" is disabled), show ended auctions.
+				if ( ! $( 'body' ).hasClass( 'single-product' ) && ! isAuctionPage ) {
 					var $productCard = $el.closest( '.product, .woocommerce-product, .wc-block-grid__product' );
 
 					if ( $productCard.length && ! $productCard.data( 'auction-hidden' ) ) {

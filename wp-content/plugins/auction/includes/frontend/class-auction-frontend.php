@@ -850,6 +850,30 @@ class Auction_Frontend {
 			echo '</span>';
 		}
 	
+		// Status display (Active/Closed)
+		$status_label = '';
+		$status_class = '';
+		switch ( $status ) {
+			case 'active':
+				$status_label = __( 'Active', 'auction' );
+				$status_class = 'auction-status-active';
+				break;
+			case 'ended':
+				$status_label = __( 'Closed', 'auction' );
+				$status_class = 'auction-status-closed';
+				break;
+			case 'scheduled':
+				$status_label = __( 'Scheduled', 'auction' );
+				$status_class = 'auction-status-scheduled';
+				break;
+		}
+		
+		if ( $status_label ) {
+			echo '<div class="auction-status-badge ' . esc_attr( $status_class ) . '">';
+			// echo '<span class="auction-status-label">' . esc_html( $status_label ) . '</span>';
+			echo '</div>';
+		}
+	
 		echo '<div class="auction-loop-info">';
 		
 		// Auction end time
@@ -887,6 +911,28 @@ class Auction_Frontend {
 		echo '<div class="auction-info-row">';
 		echo '<strong>' . esc_html__( 'Bid Increment:', 'auction' ) . '</strong> ';
 		echo '<span class="auction-bid-increment">' . wp_kses_post( wc_price( $bid_increment ) ) . '</span>';
+		echo '</div>';
+		
+		// Time Remaining / Status
+		echo '<div class="auction-info-row">';
+		echo '<strong>' . esc_html__( 'Time Remaining:', 'auction' ) . '</strong> ';
+		$status_label = '';
+		$status_class = '';
+		switch ( $status ) {
+			case 'active':
+				$status_label = __( 'Active', 'auction' );
+				$status_class = 'auction-status-active';
+				break;
+			case 'ended':
+				$status_label = __( 'Closed', 'auction' );
+				$status_class = 'auction-status-closed';
+				break;
+			case 'scheduled':
+				$status_label = __( 'Scheduled', 'auction' );
+				$status_class = 'auction-status-scheduled';
+				break;
+		}
+		echo '<span class="auction-time-remaining ' . esc_attr( $status_class ) . '">' . esc_html( $status_label ) . '</span>';
 		echo '</div>';
 		
 		// Lot Details button
@@ -1039,6 +1085,7 @@ class Auction_Frontend {
 
 			$current_time = current_time( 'mysql' );
 
+			// Hide ended auctions if the setting is enabled (applies to all pages including auction page)
 			if ( $hide_ended ) {
 				$meta_query[] = array(
 					'relation' => 'OR',
@@ -1193,7 +1240,7 @@ class Auction_Frontend {
 	}
 
 	/**
-	 * Prevent direct purchase when buy now is disabled.
+	 * Prevent direct purchase when buy now is disabled or auction is ended.
 	 *
 	 * @param bool       $purchasable Whether product is purchasable.
 	 * @param WC_Product $product     Product instance.
@@ -1210,6 +1257,12 @@ class Auction_Frontend {
 		}
 
 		$config = Auction_Product_Helper::get_config( $product );
+
+		// Check if auction is ended - disable Buy Now for closed auctions
+		$auction_status = Auction_Product_Helper::get_auction_status( $config );
+		if ( 'ended' === $auction_status ) {
+			return false;
+		}
 
 		// If Buy Now is not enabled, block direct purchase.
 		if ( ! $config['buy_now_enabled'] ) {
@@ -1239,13 +1292,19 @@ class Auction_Frontend {
 
 		$config = Auction_Product_Helper::get_config( $product );
 
+		// Check if auction is ended - hide Buy Now text for closed auctions
+		$auction_status = Auction_Product_Helper::get_auction_status( $config );
+		if ( 'ended' === $auction_status ) {
+			return '';
+		}
+
 		return $config['buy_now_enabled']
 			? __( 'Buy Now', 'auction' )
 			: '';
 	}
 
 	/**
-	 * Remove loop add to cart link when buy now is disabled.
+	 * Remove loop add to cart link when buy now is disabled or auction is ended.
 	 *
 	 * @param string     $html    Button HTML.
 	 * @param WC_Product $product Product instance.
@@ -1262,6 +1321,12 @@ class Auction_Frontend {
 		}
 
 		$config = Auction_Product_Helper::get_config( $product );
+
+		// Check if auction is ended - remove Buy Now button for closed auctions
+		$auction_status = Auction_Product_Helper::get_auction_status( $config );
+		if ( 'ended' === $auction_status ) {
+			return '';
+		}
 
 		// When Buy Now is disabled, remove the loop add-to-cart link.
 		if ( ! $config['buy_now_enabled'] ) {
@@ -1380,6 +1445,26 @@ class Auction_Frontend {
 			wp_send_json_error(
 				array(
 					'message' => __( 'Invalid product.', 'auction' ),
+				)
+			);
+		}
+
+		$product = wc_get_product( $product_id );
+		if ( ! $product || ! Auction_Product_Helper::is_auction_product( $product ) ) {
+			wp_send_json_error(
+				array(
+					'message' => __( 'Invalid auction product.', 'auction' ),
+				)
+			);
+		}
+
+		// Check if auction is ended - prevent bids on closed auctions
+		$config = Auction_Product_Helper::get_config( $product );
+		$auction_status = Auction_Product_Helper::get_auction_status( $config );
+		if ( 'ended' === $auction_status ) {
+			wp_send_json_error(
+				array(
+					'message' => __( 'This auction has ended. Bidding is no longer available.', 'auction' ),
 				)
 			);
 		}
