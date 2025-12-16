@@ -218,49 +218,6 @@ if ( $leading_bid ) {
 		</p>
 	<?php endif; ?>
 
-<div class="auction-bid-history">
-	<h3><?php esc_html_e( 'Bid history', 'auction' ); ?></h3>
-	<?php if ( $config['sealed'] ) : ?>
-		<p><?php esc_html_e( 'This is a sealed auction. Bid details will remain hidden until the auction ends.', 'auction' ); ?></p>
-	<?php else : ?>
-		<?php if ( ! empty( $bid_history ) ) : ?>
-			<table class="auction-bid-history__table">
-				<thead>
-					<tr>
-						<th><?php esc_html_e( 'Bidder', 'auction' ); ?></th>
-						<th><?php esc_html_e( 'Bid amount', 'auction' ); ?></th>
-						<th><?php esc_html_e( 'Bid time', 'auction' ); ?></th>
-					</tr>
-				</thead>
-				<tbody>
-					<?php foreach ( $bid_history as $entry ) : ?>
-						<tr>
-							<td><?php echo esc_html( $entry['name'] ); ?></td>
-							<td><?php echo wp_kses_post( wc_price( $entry['amount'] ) ); ?></td>
-							<td>
-								<?php
-								if ( ! empty( $entry['time'] ) ) {
-									echo esc_html(
-										wp_date(
-											get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
-											strtotime( $entry['time'] )
-										)
-									);
-								} else {
-									esc_html_e( 'N/A', 'auction' );
-								}
-								?>
-							</td>
-						</tr>
-					<?php endforeach; ?>
-				</tbody>
-			</table>
-		<?php else : ?>
-			<p><?php esc_html_e( 'No bids have been placed yet. Be the first to bid!', 'auction' ); ?></p>
-		<?php endif; ?>
-	<?php endif; ?>
-</div>
-
 	<div class="auction-bid-confirmation" aria-hidden="true" role="dialog">
 		<div class="auction-bid-confirmation__dialog">
 			<h3><?php esc_html_e( 'Confirm your bid', 'auction' ); ?></h3>

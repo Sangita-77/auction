@@ -113,6 +113,7 @@ class Auction_Frontend {
 		add_filter( 'wp_nav_menu_objects', array( $this, 'nav_menu_item_classes' ) );
 
 		add_action( 'woocommerce_single_product_summary', array( $this, 'render_single_product_auction_panel' ), 25 );
+		add_action( 'woocommerce_after_add_to_cart_button', array( $this, 'render_bid_history_table' ), 10 );
 		add_action( 'woocommerce_after_shop_loop_item', array( $this, 'render_loop_badge' ), 20 );
 		add_action( 'woocommerce_before_shop_loop', array( $this, 'maybe_output_first_section_header' ), 25 );
 		add_action( 'woocommerce_shop_loop', array( $this, 'maybe_output_section_header' ), 5 );
@@ -629,6 +630,101 @@ class Auction_Frontend {
 			'',
 			$this->plugin_path . 'templates/'
 		);
+	}
+
+	/**
+	 * Render bid history table below buy button.
+	 *
+	 * @return void
+	 */
+	public function render_bid_history_table(): void {
+		global $product;
+
+		if ( ! $product instanceof WC_Product ) {
+			return;
+		}
+
+		if ( ! Auction_Product_Helper::is_auction_product( $product ) ) {
+			return;
+		}
+
+		$config = Auction_Product_Helper::get_config( $product );
+		$bid_history = Auction_Bid_Manager::get_bid_history( $product->get_id(), 100, true );
+		
+		// Format bid history
+		$bid_history = array_map(
+			function ( $item ) use ( $config ) {
+				return array(
+					'name'   => $this->format_bidder_name( $item, $config ),
+					'amount' => Auction_Product_Helper::to_float( $item['bid_amount'] ?? 0 ),
+					'time'   => $item['created_at'] ?? '',
+					'status' => $item['status'] ?? '',
+				);
+			},
+			$bid_history
+		);
+
+		?>
+		<div class="auction-bid-history" style="margin-top: 30px; clear: both;">
+			<h3 style="margin-bottom: 15px;"><?php esc_html_e( 'Bid History', 'auction' ); ?></h3>
+			<?php if ( $config['sealed'] && 'active' === Auction_Product_Helper::get_auction_status( $config ) ) : ?>
+				<p><?php esc_html_e( 'This is a sealed auction. Bid details will remain hidden until the auction ends.', 'auction' ); ?></p>
+			<?php else : ?>
+				<?php if ( ! empty( $bid_history ) ) : ?>
+					<table class="auction-bid-history__table" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+						<thead>
+							<tr style="background-color: #f5f5f5;">
+								<th style="padding: 12px; text-align: left; border: 1px solid #ddd;"><?php esc_html_e( 'Bidder', 'auction' ); ?></th>
+								<th style="padding: 12px; text-align: left; border: 1px solid #ddd;"><?php esc_html_e( 'Bid Amount', 'auction' ); ?></th>
+								<th style="padding: 12px; text-align: left; border: 1px solid #ddd;"><?php esc_html_e( 'Bid Time', 'auction' ); ?></th>
+								<th style="padding: 12px; text-align: left; border: 1px solid #ddd;"><?php esc_html_e( 'Status', 'auction' ); ?></th>
+							</tr>
+						</thead>
+						<tbody>
+							<?php foreach ( $bid_history as $entry ) : ?>
+								<tr style="border-bottom: 1px solid #ddd;">
+									<td style="padding: 10px; border: 1px solid #ddd;"><?php echo esc_html( $entry['name'] ); ?></td>
+									<td style="padding: 10px; border: 1px solid #ddd;"><?php echo wp_kses_post( wc_price( $entry['amount'] ) ); ?></td>
+									<td style="padding: 10px; border: 1px solid #ddd;">
+										<?php
+										if ( ! empty( $entry['time'] ) ) {
+											echo esc_html(
+												wp_date(
+													get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
+													strtotime( $entry['time'] )
+												)
+											);
+										} else {
+											esc_html_e( 'N/A', 'auction' );
+										}
+										?>
+									</td>
+									<td style="padding: 10px; border: 1px solid #ddd;">
+										<?php
+										$status_label = '';
+										switch ( $entry['status'] ?? '' ) {
+											case 'active':
+												$status_label = __( 'Active', 'auction' );
+												break;
+											case 'outbid':
+												$status_label = __( 'Outbid', 'auction' );
+												break;
+											default:
+												$status_label = __( 'N/A', 'auction' );
+										}
+										echo esc_html( $status_label );
+										?>
+									</td>
+								</tr>
+							<?php endforeach; ?>
+						</tbody>
+					</table>
+				<?php else : ?>
+					<p><?php esc_html_e( 'No bids have been placed yet. Be the first to bid!', 'auction' ); ?></p>
+				<?php endif; ?>
+			<?php endif; ?>
+		</div>
+		<?php
 	}
 
 	/**
