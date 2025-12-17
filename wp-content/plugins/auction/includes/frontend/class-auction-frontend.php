@@ -3328,11 +3328,17 @@ class Auction_Frontend {
 					var endTimestamp = 0;
 
 					if ($auctionMeta.length) {
-						// Extract bid count from text like "(bids: 5)"
-						var bidCountText = $auctionMeta.find('.auction-bid-count').text();
+						// Extract bid count.
+						// Prefer explicit elements, but also support text patterns like "Current Bid:(bids: 2)" or "(2 bids)".
+						var bidCountText = $auctionMeta.find('.auction-bid-count, .bid-count').first().text();
+						if (!bidCountText) {
+							bidCountText = $auctionMeta.text();
+						}
 						if (bidCountText) {
-							var bidMatch = bidCountText.match(/(\d+)/);
-							if (bidMatch) bidCount = parseInt(bidMatch[1], 10);
+							var bidMatch = bidCountText.match(/bids:\s*(\d+)/i) || bidCountText.match(/\(\s*(\d+)\s*bids?\s*\)/i) || bidCountText.match(/(\d+)\s*bids?/i);
+							if (bidMatch && bidMatch[1]) {
+								bidCount = parseInt(bidMatch[1], 10) || 0;
+							}
 						}
 
 						// Extract current bid - remove currency symbols and parse
