@@ -2938,8 +2938,16 @@ class Auction_Frontend {
 			$next_count = $scheduled_map[ $next_date ];
 		}
 
-		$today_formatted = wp_date( get_option( 'date_format' ), $now );
-		$next_date_formatted = $next_date ? wp_date( get_option( 'date_format' ), strtotime( $next_date ) ) : '';
+		$today_formatted      = wp_date( get_option( 'date_format' ), $now );
+		$next_date_formatted  = $next_date ? wp_date( get_option( 'date_format' ), strtotime( $next_date ) ) : '';
+
+		// Load configurable frontend texts for Dates & Times and Terms & Conditions tabs.
+		if ( ! class_exists( 'Auction_Settings' ) ) {
+			// Frontend file is in includes/frontend/, settings class is in includes/.
+			require_once plugin_dir_path( __DIR__ ) . 'class-auction-settings.php';
+		}
+		$dates_times_content = wp_kses_post( Auction_Settings::get( 'dates_times_content', '' ) );
+		$terms_content       = wp_kses_post( Auction_Settings::get( 'terms_content', '' ) );
 
 		// Output header HTML
 		?>
@@ -3083,13 +3091,25 @@ class Auction_Frontend {
 			<!-- Tab Content: Dates & Times -->
 			<div class="auction-tab-content" id="dates-times" style="display: none; padding: 20px;">
 				<h3><?php esc_html_e( 'Auction Dates & Times', 'auction' ); ?></h3>
-				<p><?php esc_html_e( 'This section displays auction dates and times. You can customize this content as needed.', 'auction' ); ?></p>
+				<?php if ( ! empty( $dates_times_content ) ) : ?>
+					<div class="auction-dates-times-content">
+						<?php echo $dates_times_content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					</div>
+				<?php else : ?>
+					<p><?php esc_html_e( 'Auction dates & times information will appear here.', 'auction' ); ?></p>
+				<?php endif; ?>
 			</div>
 
 			<!-- Tab Content: Terms & Conditions -->
 			<div class="auction-tab-content" id="terms" style="display: none; padding: 20px;">
 				<h3><?php esc_html_e( 'Terms & Conditions', 'auction' ); ?></h3>
-				<p><?php esc_html_e( 'This section displays terms and conditions. You can customize this content as needed.', 'auction' ); ?></p>
+				<?php if ( ! empty( $terms_content ) ) : ?>
+					<div class="auction-terms-content">
+						<?php echo $terms_content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					</div>
+				<?php else : ?>
+					<p><?php esc_html_e( 'Terms & conditions information will appear here.', 'auction' ); ?></p>
+				<?php endif; ?>
 			</div>
 
 			<!-- Tab Content: Categories -->

@@ -1440,6 +1440,24 @@ class Auction_Admin_Menu {
 					),
 				),
 			),
+			'auction_frontend_content' => array(
+				'title'       => __( 'Auction Frontend Content', 'auction' ),
+				'description' => __( 'Content shown in the Dates & Times and Terms & Conditions tabs on the main auctions page.', 'auction' ),
+				'fields'      => array(
+					'dates_times_content' => array(
+						'type'        => 'textarea',
+						'label'       => __( 'Dates & Times content', 'auction' ),
+						'description' => __( 'Text or HTML shown in the “Dates & Times” tab on the auction listing page.', 'auction' ),
+						'default'     => '',
+					),
+					'terms_content'       => array(
+						'type'        => 'textarea',
+						'label'       => __( 'Terms & Conditions content', 'auction' ),
+						'description' => __( 'Text or HTML shown in the “Terms & Conditions” tab on the auction listing page.', 'auction' ),
+						'default'     => '',
+					),
+				),
+			),
 			'auctions_payments'   => array(
 				'title'       => __( 'Auctions Payments', 'auction' ),
 				'description' => __( 'Options related to the management and payment of won auctions. (Coming soon)', 'auction' ),
