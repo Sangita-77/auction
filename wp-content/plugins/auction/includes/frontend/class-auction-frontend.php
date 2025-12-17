@@ -876,29 +876,16 @@ class Auction_Frontend {
 	
 		echo '<div class="auction-loop-info">';
 		
-		// Auction end time
-		if ( $end_timestamp ) {
-			$start_attr = $start_timestamp ? ' data-countdown-start="' . esc_attr( $start_timestamp ) . '"' : '';
-			echo '<div class="auction-info-row">';
-			echo '<strong>' . esc_html__( 'Auction Ends:', 'auction' ) . '</strong> ';
-			echo '<span class="auction-end-time">' . esc_html( date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $end_timestamp ) ) . '</span>';
-			if ( Auction_Settings::is_enabled( 'show_countdown_loop' ) ) {
-				echo ' <span class="auction-countdown" data-countdown-target="' . esc_attr( $end_timestamp ) . '"' . $start_attr . '></span>';
-			}
-			echo '</div>';
-		}
-		
-		// Current Bid with total bid count
-		echo '<div class="auction-info-row">';
-		echo '<strong>' . esc_html__( 'Current Bid:', 'auction' ) . '</strong> ';
-		echo '<span class="auction-current-bid">' . wp_kses_post( wc_price( $current_bid ) ) . '</span>';
-		echo ' <span class="auction-bid-count">(' . esc_html__( 'bids:', 'auction' ) . ' ' . esc_html( $total_bids ) . ')</span>';
-		echo '</div>';
-		
 		// High Bidder
 		echo '<div class="auction-info-row">';
 		echo '<strong>' . esc_html__( 'High Bidder:', 'auction' ) . '</strong> ';
 		echo '<span class="auction-high-bidder">' . esc_html( $high_bidder_name ) . '</span>';
+		echo '</div>';
+		
+		// Current Bid with total bid count
+		echo '<div class="auction-info-row">';
+		echo '<strong>' . esc_html__( 'Current Bid:', 'auction' ) . '(' . esc_html__( 'bids:', 'auction' ) . ' ' . esc_html( $total_bids ) . ')</strong> ';
+		echo '<span class="auction-current-bid">' . wp_kses_post( wc_price( $current_bid ) ) . '</span>';
 		echo '</div>';
 		
 		// Min Bid
@@ -912,6 +899,18 @@ class Auction_Frontend {
 		echo '<strong>' . esc_html__( 'Bid Increment:', 'auction' ) . '</strong> ';
 		echo '<span class="auction-bid-increment">' . wp_kses_post( wc_price( $bid_increment ) ) . '</span>';
 		echo '</div>';
+		
+		// Auction end time
+		if ( $end_timestamp ) {
+			$start_attr = $start_timestamp ? ' data-countdown-start="' . esc_attr( $start_timestamp ) . '"' : '';
+			echo '<div class="auction-info-row d-none">';
+			echo '<strong>' . esc_html__( 'Auction Ends:', 'auction' ) . '</strong> ';
+			echo '<span class="auction-end-time">' . esc_html( date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $end_timestamp ) ) . '</span>';
+			if ( Auction_Settings::is_enabled( 'show_countdown_loop' ) ) {
+				echo ' <span class="auction-countdown" data-countdown-target="' . esc_attr( $end_timestamp ) . '"' . $start_attr . '></span>';
+			}
+			echo '</div>';
+		}
 		
 		// Time Remaining / Status
 		echo '<div class="auction-info-row">';
@@ -1085,8 +1084,11 @@ class Auction_Frontend {
 
 			$current_time = current_time( 'mysql' );
 
-			// Hide ended auctions if the setting is enabled (applies to all pages including auction page)
-			if ( $hide_ended ) {
+			// Check if we're on the shop page (not auction page, not category/taxonomy pages)
+			$is_shop_page = $query->is_post_type_archive( 'product' ) && ! $query->is_tax() && ! $is_auction_page;
+
+			// Hide ended auctions if the setting is enabled, but show them on shop page and auction page
+			if ( $hide_ended && ! $is_shop_page && ! $is_auction_page ) {
 				$meta_query[] = array(
 					'relation' => 'OR',
 					array(
@@ -1175,9 +1177,27 @@ class Auction_Frontend {
 		}
 
 		global $wpdb;
+		$current_time = current_time( 'mysql' );
 
-		// Filter: Show products WITHOUT auction OR products WITH auction + buy now enabled
+		// Filter: Show products WITHOUT auction OR products WITH auction + buy now enabled OR closed auctions
 		// This SQL ensures products with both buy and bid options appear on buy shop page
+		// Also includes closed auctions so they are visible on shop page
+		$closed_auction_sql = $wpdb->prepare(
+			"EXISTS (
+				SELECT 1 FROM {$wpdb->postmeta} pm4 
+				WHERE pm4.post_id = {$wpdb->posts}.ID 
+				AND pm4.meta_key = '_auction_enabled' 
+				AND pm4.meta_value = 'yes'
+				AND EXISTS (
+					SELECT 1 FROM {$wpdb->postmeta} pm5 
+					WHERE pm5.post_id = {$wpdb->posts}.ID 
+					AND pm5.meta_key = '_auction_end_time' 
+					AND pm5.meta_value < %s
+				)
+			)",
+			$current_time
+		);
+
 		$where .= " AND (
 			NOT EXISTS (
 				SELECT 1 FROM {$wpdb->postmeta} pm1 
@@ -1194,6 +1214,7 @@ class Auction_Frontend {
 				AND pm3.meta_key = '_auction_buy_now_enabled' 
 				AND pm3.meta_value = 'yes'
 			)
+			OR " . $closed_auction_sql . "
 		)";
 
 		return $where;
@@ -1800,13 +1821,17 @@ class Auction_Frontend {
 								<option value=""><?php esc_html_e( 'All Categories', 'auction' ); ?></option>
 								<?php
 								if ( ! empty( $categories_map ) ) :
+									// Filter to only show categories with auction products
+									$filtered_categories = array_filter( $categories_map, function( $data ) {
+										return isset( $data['count'] ) && $data['count'] > 0;
+									});
 									usort(
-										$categories_map,
+										$filtered_categories,
 										static function ( $a, $b ) {
 											return strcasecmp( $a['term']->name, $b['term']->name );
 										}
 									);
-									foreach ( $categories_map as $data ) :
+									foreach ( $filtered_categories as $data ) :
 										$term = $data['term'];
 										?>
 										<option value="<?php echo esc_attr( $term->slug ); ?>">
@@ -1903,10 +1928,15 @@ class Auction_Frontend {
 				</div>
 
 				<div id="auction-tab-categories" class="auction-tab-panel">
-					<?php if ( ! empty( $categories_map ) ) : ?>
+					<?php 
+					// Filter categories to only show those with auction products
+					$filtered_categories = array_filter( $categories_map, function( $data ) {
+						return isset( $data['count'] ) && $data['count'] > 0;
+					});
+					if ( ! empty( $filtered_categories ) ) : ?>
 						<ul class="auction-category-list">
 							<?php
-							foreach ( $categories_map as $data ) :
+							foreach ( $filtered_categories as $data ) :
 								$term = $data['term'];
 								?>
 								<li>
@@ -1978,8 +2008,13 @@ class Auction_Frontend {
 
 		<script>
 			(function() {
-				const root = document.currentScript ? document.currentScript.parentElement : document.querySelector('.auction-listing-wrapper');
-				if (!root) { return; }
+				function initAuctionListing() {
+					const root = document.querySelector('.auction-listing-wrapper');
+					if (!root) { 
+						// Retry after a short delay if root not found
+						setTimeout(initAuctionListing, 100);
+						return; 
+					}
 
 				// Tabs.
 				const tabButtons = root.querySelectorAll('.auction-tab-button');
@@ -2100,22 +2135,73 @@ class Auction_Frontend {
 					});
 				});
 
-				// Layout toggle.
-				var layoutButtons = root.querySelectorAll('.layout-toggle-button');
-				Array.prototype.forEach.call(layoutButtons, function(btn) {
-					btn.addEventListener('click', function() {
-						var layout = btn.getAttribute('data-layout');
-						Array.prototype.forEach.call(layoutButtons, function(b) { b.classList.remove('is-active'); });
-						btn.classList.add('is-active');
-						if (layout === 'list') {
-							productsContainer.classList.remove('is-grid');
-							productsContainer.classList.add('is-list');
-						} else {
-							productsContainer.classList.remove('is-list');
-							productsContainer.classList.add('is-grid');
-						}
-					});
-				});
+				// Layout toggle - support both class and ID versions
+				if (productsContainer) {
+					// Handle ID version (#auction-layout-toggle - single button)
+					var layoutToggleBtn = root.querySelector('#auction-layout-toggle');
+					if (!layoutToggleBtn) {
+						layoutToggleBtn = document.querySelector('#auction-layout-toggle');
+					}
+					
+					if (layoutToggleBtn) {
+						layoutToggleBtn.addEventListener('click', function(e) {
+							e.preventDefault();
+							e.stopPropagation();
+							
+							var layout = this.getAttribute('data-layout') || 'grid';
+							var newLayout = layout === 'grid' ? 'list' : 'grid';
+							this.setAttribute('data-layout', newLayout);
+							
+							// Toggle layout classes
+							productsContainer.classList.remove('is-grid', 'is-list', 'grid-view', 'list-view');
+							if (newLayout === 'list') {
+								productsContainer.classList.add('is-list');
+							} else {
+								productsContainer.classList.add('is-grid');
+							}
+							
+							// Update button text
+							this.textContent = newLayout === 'grid' ? '☰' : '⧉';
+						});
+					}
+					
+					// Handle class version (.auction-layout-toggle - container with buttons)
+					var layoutToggleContainer = root.querySelector('.auction-layout-toggle');
+					if (!layoutToggleContainer) {
+						layoutToggleContainer = document.querySelector('.auction-layout-toggle');
+					}
+					
+					if (layoutToggleContainer && !layoutToggleBtn) {
+						layoutToggleContainer.addEventListener('click', function(e) {
+							var btn = e.target;
+							if (!btn || !btn.classList.contains('layout-toggle-button')) {
+								return;
+							}
+							
+							e.preventDefault();
+							e.stopPropagation();
+							
+							var layout = btn.getAttribute('data-layout');
+							if (!layout) { return; }
+							
+							// Update all buttons
+							var allButtons = layoutToggleContainer.querySelectorAll('.layout-toggle-button');
+							Array.prototype.forEach.call(allButtons, function(b) { 
+								b.classList.remove('is-active'); 
+							});
+							btn.classList.add('is-active');
+							
+							// Toggle layout classes
+							if (layout === 'list') {
+								productsContainer.classList.remove('is-grid');
+								productsContainer.classList.add('is-list');
+							} else {
+								productsContainer.classList.remove('is-list');
+								productsContainer.classList.add('is-grid');
+							}
+						});
+					}
+				}
 
 				// Sorting.
 				var sortButtons = root.querySelectorAll('.sort-button');
@@ -2146,6 +2232,14 @@ class Auction_Frontend {
 				}
 
 				applyFiltersAndSorting();
+				}
+				
+				// Run on DOM ready
+				if (document.readyState === 'loading') {
+					document.addEventListener('DOMContentLoaded', initAuctionListing);
+				} else {
+					initAuctionListing();
+				}
 			})();
 		</script>
 		<?php
@@ -2784,6 +2878,11 @@ class Auction_Frontend {
 				continue;
 			}
 
+			// Double-check: ensure this is actually an auction product
+			if ( ! Auction_Product_Helper::is_auction_product( $product ) ) {
+				continue;
+			}
+
 			$config = Auction_Product_Helper::get_config( $product );
 			$status = Auction_Product_Helper::get_auction_status( $config );
 			$start_ts = $config['start_timestamp'] ?: 0;
@@ -2804,7 +2903,7 @@ class Auction_Frontend {
 				$scheduled_map[ $date_key ]++;
 			}
 
-			// Categories
+			// Categories - only add categories from confirmed auction products
 			$terms = get_the_terms( $product->get_id(), 'product_cat' );
 			if ( $terms && ! is_wp_error( $terms ) ) {
 				foreach ( $terms as $term ) {
@@ -2819,6 +2918,16 @@ class Auction_Frontend {
 			}
 		}
 		wp_reset_postdata();
+
+		// Filter out categories with zero count - only keep categories that have auction products
+		// This is a safety check, but categories_map should only contain categories from auction products
+		$filtered_categories = array();
+		foreach ( $categories_map as $term_id => $cat_data ) {
+			if ( isset( $cat_data['count'] ) && (int) $cat_data['count'] > 0 && isset( $cat_data['term'] ) && is_object( $cat_data['term'] ) ) {
+				$filtered_categories[ $term_id ] = $cat_data;
+			}
+		}
+		$categories_map = $filtered_categories;
 
 		// Get next auction date
 		$next_date = null;
@@ -2876,9 +2985,14 @@ class Auction_Frontend {
 					<select id="auction-category-filter" style="padding: 8px; border: 1px solid #ddd;">
 						<option value=""><?php esc_html_e( 'All Categories', 'auction' ); ?></option>
 						<?php
-						foreach ( $categories_map as $cat_data ) {
-							$term = $cat_data['term'];
-							echo '<option value="' . esc_attr( $term->slug ) . '">' . esc_html( $term->name ) . ' (' . esc_html( $cat_data['count'] ) . ')</option>';
+						if ( ! empty( $categories_map ) ) {
+							foreach ( $categories_map as $cat_data ) {
+								// Categories are already filtered, but double-check for safety
+								if ( isset( $cat_data['term'] ) && isset( $cat_data['count'] ) && $cat_data['count'] > 0 ) {
+									$term = $cat_data['term'];
+									echo '<option value="' . esc_attr( $term->slug ) . '">' . esc_html( $term->name ) . ' (' . esc_html( $cat_data['count'] ) . ')</option>';
+								}
+							}
 						}
 						?>
 					</select>
@@ -2895,21 +3009,71 @@ class Auction_Frontend {
 
 				<!-- Sorting -->
 				<div class="auction-sorting" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
-					<button type="button" class="auction-sort-btn" data-sort="bid-count" style="padding: 8px 15px; background: #333; color: white; border: none; cursor: pointer;">
-						<?php esc_html_e( 'Bid Count', 'auction' ); ?> ↕
-					</button>
-					<button type="button" class="auction-sort-btn" data-sort="end-date" style="padding: 8px 15px; background: #333; color: white; border: none; cursor: pointer;">
-						<?php esc_html_e( 'End Date', 'auction' ); ?> ↕
-					</button>
-					<button type="button" class="auction-sort-btn" data-sort="title" style="padding: 8px 15px; background: #333; color: white; border: none; cursor: pointer;">
-						<?php esc_html_e( 'Title', 'auction' ); ?> ↕
-					</button>
-					<button type="button" class="auction-sort-btn" data-sort="lot-number" style="padding: 8px 15px; background: #333; color: white; border: none; cursor: pointer;">
-						<?php esc_html_e( 'Lot Number', 'auction' ); ?> ↕
-					</button>
-					<button type="button" class="auction-sort-btn" data-sort="current-bid" style="padding: 8px 15px; background: #333; color: white; border: none; cursor: pointer;">
-						<?php esc_html_e( 'Current Bid', 'auction' ); ?> ↕
-					</button>
+					<div class="auction-sort-wrapper" style="position: relative;">
+						<button type="button" class="auction-sort-btn" data-sort="bid-count" style="padding: 8px 15px; background: #333; color: white; border: none; cursor: pointer;">
+							<?php esc_html_e( 'Bid Count', 'auction' ); ?> ↕
+						</button>
+						<div class="auction-sort-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000; min-width: 150px; margin-top: 2px;">
+							<button type="button" class="auction-sort-option" data-sort="bid-count" data-direction="asc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; border-bottom: 1px solid #eee; color: #000;">
+								<?php esc_html_e( 'Ascending', 'auction' ); ?> ↑
+							</button>
+							<button type="button" class="auction-sort-option" data-sort="bid-count" data-direction="desc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; color: #000;">
+								<?php esc_html_e( 'Descending', 'auction' ); ?> ↓
+							</button>
+						</div>
+					</div>
+					<div class="auction-sort-wrapper" style="position: relative;">
+						<button type="button" class="auction-sort-btn" data-sort="end-date" style="padding: 8px 15px; background: #333; color: white; border: none; cursor: pointer;">
+							<?php esc_html_e( 'End Date', 'auction' ); ?> ↕
+						</button>
+						<div class="auction-sort-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000; min-width: 150px; margin-top: 2px;">
+							<button type="button" class="auction-sort-option" data-sort="end-date" data-direction="asc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; border-bottom: 1px solid #eee; color: #000;">
+								<?php esc_html_e( 'Ascending', 'auction' ); ?> ↑
+							</button>
+							<button type="button" class="auction-sort-option" data-sort="end-date" data-direction="desc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; color: #000;">
+								<?php esc_html_e( 'Descending', 'auction' ); ?> ↓
+							</button>
+						</div>
+					</div>
+					<div class="auction-sort-wrapper" style="position: relative;">
+						<button type="button" class="auction-sort-btn" data-sort="title" style="padding: 8px 15px; background: #333; color: white; border: none; cursor: pointer;">
+							<?php esc_html_e( 'Title', 'auction' ); ?> ↕
+						</button>
+						<div class="auction-sort-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000; min-width: 150px; margin-top: 2px;">
+							<button type="button" class="auction-sort-option" data-sort="title" data-direction="asc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; border-bottom: 1px solid #eee; color: #000;">
+								<?php esc_html_e( 'Ascending', 'auction' ); ?> ↑
+							</button>
+							<button type="button" class="auction-sort-option" data-sort="title" data-direction="desc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; color: #000;">
+								<?php esc_html_e( 'Descending', 'auction' ); ?> ↓
+							</button>
+						</div>
+					</div>
+					<div class="auction-sort-wrapper" style="position: relative;">
+						<button type="button" class="auction-sort-btn" data-sort="lot-number" style="padding: 8px 15px; background: #333; color: white; border: none; cursor: pointer;">
+							<?php esc_html_e( 'Lot Number', 'auction' ); ?> ↕
+						</button>
+						<div class="auction-sort-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000; min-width: 150px; margin-top: 2px;">
+							<button type="button" class="auction-sort-option" data-sort="lot-number" data-direction="asc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; border-bottom: 1px solid #eee; color: #000;">
+								<?php esc_html_e( 'Ascending', 'auction' ); ?> ↑
+							</button>
+							<button type="button" class="auction-sort-option" data-sort="lot-number" data-direction="desc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; color: #000;">
+								<?php esc_html_e( 'Descending', 'auction' ); ?> ↓
+							</button>
+						</div>
+					</div>
+					<div class="auction-sort-wrapper" style="position: relative;">
+						<button type="button" class="auction-sort-btn" data-sort="current-bid" style="padding: 8px 15px; background: #333; color: white; border: none; cursor: pointer;">
+							<?php esc_html_e( 'Current Bid', 'auction' ); ?> ↕
+						</button>
+						<div class="auction-sort-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000; min-width: 150px; margin-top: 2px;">
+							<button type="button" class="auction-sort-option" data-sort="current-bid" data-direction="asc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; border-bottom: 1px solid #eee; color: #000;">
+								<?php esc_html_e( 'Ascending', 'auction' ); ?> ↑
+							</button>
+							<button type="button" class="auction-sort-option" data-sort="current-bid" data-direction="desc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; color: #000;">
+								<?php esc_html_e( 'Descending', 'auction' ); ?> ↓
+							</button>
+						</div>
+					</div>
 					<button type="button" id="auction-clear-sort" style="padding: 8px 15px; background: #999; color: white; border: none; cursor: pointer;">
 						<?php esc_html_e( 'Clear Sorting', 'auction' ); ?>
 					</button>
@@ -2933,12 +3097,19 @@ class Auction_Frontend {
 				<h3><?php esc_html_e( 'Categories', 'auction' ); ?></h3>
 				<div class="auction-categories-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
 					<?php
-					foreach ( $categories_map as $cat_data ) {
-						$term = $cat_data['term'];
-						echo '<div class="auction-category-item" style="padding: 15px; border: 1px solid #ddd; cursor: pointer; text-align: center;" data-category-slug="' . esc_attr( $term->slug ) . '">';
-						echo '<strong>' . esc_html( $term->name ) . '</strong><br>';
-						echo '<span>' . esc_html( $cat_data['count'] ) . ' ' . esc_html__( 'products', 'auction' ) . '</span>';
-						echo '</div>';
+					if ( ! empty( $categories_map ) ) {
+						foreach ( $categories_map as $cat_data ) {
+							// Categories are already filtered, but double-check for safety
+							if ( isset( $cat_data['term'] ) && isset( $cat_data['count'] ) && $cat_data['count'] > 0 ) {
+								$term = $cat_data['term'];
+								echo '<div class="auction-category-item" style="padding: 15px; border: 1px solid #ddd; cursor: pointer; text-align: center;" data-category-slug="' . esc_attr( $term->slug ) . '">';
+								echo '<strong>' . esc_html( $term->name ) . '</strong><br>';
+								echo '<span>' . esc_html( $cat_data['count'] ) . ' ' . esc_html__( 'products', 'auction' ) . '</span>';
+								echo '</div>';
+							}
+						}
+					} else {
+						echo '<p>' . esc_html__( 'No categories found for current auctions.', 'auction' ) . '</p>';
 					}
 					?>
 				</div>
@@ -2958,41 +3129,90 @@ class Auction_Frontend {
 		}
 		?>
 		<style>
-		.auction-products-container.grid-view,
-		.products.auction-products-container.grid-view {
-			display: grid !important;
-			grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)) !important;
-			gap: 20px !important;
+		/* Sort dropdown styles */
+		.auction-sort-wrapper {
+			position: relative;
 		}
-		.auction-products-container.list-view,
-		.products.auction-products-container.list-view {
+		.auction-sort-dropdown {
+			display: none;
+			position: absolute;
+			top: 100%;
+			left: 0;
+			background: white;
+			border: 1px solid #ddd;
+			box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+			z-index: 1000;
+			min-width: 150px;
+			margin-top: 2px;
+		}
+		.auction-sort-option {
+			display: block;
+			width: 100%;
+			padding: 8px 15px;
+			text-align: left;
+			background: white;
+			border: none;
+			cursor: pointer;
+			border-bottom: 1px solid #eee;
+			color: #000 !important;
+		}
+		.auction-sort-option:last-child {
+			border-bottom: none;
+		}
+		.auction-sort-option:hover {
+			background: #f5f5f5;
+			color: #000 !important;
+		}
+		.auction-sort-option.active {
+			background: #f5f5f5;
+			font-weight: bold;
+			color: #000 !important;
+		}
+		
+		/* List layout styles - only apply when .is-list class is present */
+		.products.is-list,
+		.products.auction-products-container.is-list,
+		.auction-products-container.is-list {
 			display: flex !important;
 			flex-direction: column !important;
 			gap: 15px !important;
 		}
-		.auction-products-container.list-view li.product,
-		.auction-products-container.list-view .auction-product-item {
+		
+		.products.is-list li.product,
+		.products.auction-products-container.is-list li.product,
+		.auction-products-container.is-list li.product {
 			display: flex !important;
 			flex-direction: row !important;
 			align-items: flex-start !important;
 			width: 100% !important;
 			max-width: 100% !important;
+			margin: 0 !important;
+			float: none !important;
 		}
-		.auction-products-container.list-view li.product .product-image,
-		.auction-products-container.list-view .auction-product-item .product-image {
+		
+		.products.is-list li.product .woocommerce-loop-product__link,
+		.products.is-list li.product .wp-post-image,
+		.products.is-list li.product img {
 			width: 150px !important;
 			min-width: 150px !important;
+			max-width: 150px !important;
 			margin-right: 15px !important;
+			flex-shrink: 0 !important;
 		}
-		.auction-products-container.list-view li.product .product-details,
-		.auction-products-container.list-view .auction-product-item .product-details {
+		
+		.products.is-list li.product .woocommerce-loop-product__title,
+		.products.is-list li.product .product-details {
 			flex: 1 !important;
 		}
-		.auction-product-item {
-			border: 1px solid #ddd;
-			padding: 15px;
-			background: white;
+		
+		/* Grid layout - ensure WooCommerce's default grid layout is maintained */
+		/* Don't override - let WooCommerce handle the default layout */
+		.products.is-grid li.product,
+		.products.auction-products-container.is-grid li.product {
+			/* Reset any list-mode styles that might interfere */
+			display: block;
 		}
+		
 		/* Hide products when non-Bid Gallery tabs are active */
 		.auction-listing-page:has(.auction-tab[data-tab="dates-times"].active) ~ .products,
 		.auction-listing-page:has(.auction-tab[data-tab="terms"].active) ~ .products,
@@ -3065,13 +3285,21 @@ class Auction_Frontend {
 					            $item.find('a').first().text().trim() ||
 					            '';
 
-					// Get category from classes (WooCommerce adds product_cat-{slug} class)
-					var categorySlug = '';
+					// Get categories from classes (WooCommerce adds product_cat-{slug} classes)
+					// A product can have multiple categories, so collect all of them
+					var categorySlugs = [];
 					var classes = $item.attr('class') || '';
-					var catMatch = classes.match(/product_cat-([^\s]+)/);
-					if (catMatch) {
-						categorySlug = catMatch[1];
+					var catMatches = classes.match(/product_cat-([^\s]+)/g);
+					if (catMatches) {
+						catMatches.forEach(function(match) {
+							var slug = match.replace('product_cat-', '');
+							if (categorySlugs.indexOf(slug) === -1) {
+								categorySlugs.push(slug);
+							}
+						});
 					}
+					var categorySlug = categorySlugs.length > 0 ? categorySlugs[0] : ''; // Keep first for backward compatibility
+					var allCategories = categorySlugs.join(' '); // Space-separated for data-category attribute
 
 					// Get bid info from auction-loop-meta
 					var $auctionMeta = $item.find('.auction-loop-meta');
@@ -3107,7 +3335,8 @@ class Auction_Frontend {
 					      .attr('data-bid-count', bidCount)
 					      .attr('data-current-bid', currentBid)
 					      .attr('data-end-timestamp', endTimestamp)
-					      .attr('data-category-slug', categorySlug);
+					      .attr('data-category-slug', categorySlug)
+					      .attr('data-category', allCategories); // Store all categories for proper filtering
 				});
 			}
 
@@ -3152,6 +3381,12 @@ class Auction_Frontend {
 			$(document).on('input', '#auction-search', function() {
 				filterProducts();
 			});
+			$(document).on('keyup', '#auction-search', function(e) {
+				// Also trigger on Enter key
+				if (e.keyCode === 13) {
+					filterProducts();
+				}
+			});
 			$(document).on('click', '#auction-search-btn', function() {
 				filterProducts();
 			});
@@ -3173,81 +3408,343 @@ class Auction_Frontend {
 				updateResultsCount();
 			});
 
+			// Helper function to find products container
+			function findProductsContainer() {
+				// Try multiple selectors in order of preference
+				var selectors = [
+					'.products.auction-products-container',
+					'ul.products.auction-products-container',
+					'.woocommerce ul.products',
+					'ul.products',
+					'.products',
+					'#auction-products',
+					'.auction-products',
+					'.auction-products-container',
+					// More aggressive fallbacks
+					'[class*="products"]',
+					'ul[class*="product"]'
+				];
+				
+				for (var i = 0; i < selectors.length; i++) {
+					var $container = $(selectors[i]);
+					// Make sure it actually contains product items
+					if ($container.length > 0 && $container.find('li.product, .product, [class*="product"]').length > 0) {
+						return $container.first();
+					}
+				}
+				
+				// Last resort: find any ul that contains product-related classes
+				var $allUls = $('ul');
+				for (var j = 0; j < $allUls.length; j++) {
+					var $ul = $allUls.eq(j);
+					if ($ul.find('li.product, .product').length > 0 || $ul.hasClass('products') || $ul.attr('class') && $ul.attr('class').indexOf('product') !== -1) {
+						return $ul;
+					}
+				}
+				
+				return null;
+			}
+			
 			// Layout toggle
-			$(document).on('click', '#auction-layout-toggle', function() {
+			$(document).on('click', '#auction-layout-toggle', function(e) {
+				e.preventDefault();
+				e.stopPropagation();
+				
 				var layout = $(this).attr('data-layout') || 'grid';
 				var newLayout = layout === 'grid' ? 'list' : 'grid';
 				$(this).attr('data-layout', newLayout);
 				
-				var $container = $('.auction-products-container, .products').first();
-				$container.removeClass('grid-view list-view').addClass(newLayout + '-view');
+				// Find products container
+				var $container = findProductsContainer();
+				
+				if ($container && $container.length) {
+					$container.removeClass('is-grid is-list grid-view list-view');
+					if (newLayout === 'list') {
+						$container.addClass('is-list');
+					} else {
+						$container.addClass('is-grid');
+					}
+					console.log('Auction layout toggle: Applied', newLayout, 'layout to container', $container[0]);
+				} else {
+					// Last resort: Find a product item and get its parent container
+					var $firstProduct = $('li.product, .product, [class*="product"]').first();
+					if ($firstProduct.length) {
+						// Find the closest ul or div that contains products
+						$container = $firstProduct.closest('ul, .products, [class*="product"]');
+						if ($container.length && $container.find('li.product, .product').length > 0) {
+							$container.removeClass('is-grid is-list grid-view list-view');
+							if (newLayout === 'list') {
+								$container.addClass('is-list');
+							} else {
+								$container.addClass('is-grid');
+							}
+							console.log('Auction layout toggle: Found container via product item', $container[0]);
+						} else {
+							// Try to find any ul with products
+							$container = $('ul.products, .woocommerce ul.products, ul[class*="product"]').first();
+							if ($container.length) {
+								$container.removeClass('is-grid is-list grid-view list-view');
+								if (newLayout === 'list') {
+									$container.addClass('is-list');
+								} else {
+									$container.addClass('is-grid');
+								}
+								console.log('Auction layout toggle: Found fallback container', $container[0]);
+							} else {
+								// Debug: log what containers are available
+								console.warn('Auction layout toggle: Products container not found. Available containers:', {
+									products: $('.products').length,
+									ulProducts: $('ul.products').length,
+									woocommerceProducts: $('.woocommerce ul.products').length,
+									auctionProducts: $('#auction-products').length,
+									auctionProductsContainer: $('.auction-products-container').length,
+									allProducts: $('ul.products, .products').length,
+									productItems: $('li.product, .product').length
+								});
+							}
+						}
+					} else {
+						console.warn('Auction layout toggle: No product items found on page');
+					}
+				}
 				
 				$(this).text(newLayout === 'grid' ? '☰' : '⧉');
 			});
-
-			// Sorting
-			$(document).on('click', '.auction-sort-btn', function() {
-				var field = $(this).data('sort');
-				if (currentSort.field === field) {
-					currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
-				} else {
-					currentSort.field = field;
-					currentSort.direction = 'asc';
+			
+			// Initialize default grid layout on page load and watch for products
+			function initializeLayout() {
+				var $container = findProductsContainer();
+				if ($container && $container.length) {
+					if (!$container.hasClass('is-grid') && !$container.hasClass('is-list')) {
+						$container.addClass('is-grid');
+					}
+					return true;
 				}
-				$('.auction-sort-btn').removeClass('active');
+				return false;
+			}
+			
+			// Try immediately
+			$(document).ready(function() {
+				if (!initializeLayout()) {
+					// If not found, try again after a delay
+					setTimeout(function() {
+						if (!initializeLayout()) {
+							// Try one more time after WooCommerce might have loaded
+							setTimeout(initializeLayout, 500);
+						}
+					}, 100);
+				}
+			});
+			
+			// Also watch for WooCommerce product updates
+			$(document.body).on('updated_wc_div', function() {
+				initializeLayout();
+			});
+			
+			// Watch for products being added to DOM
+			if (window.MutationObserver) {
+				var observer = new MutationObserver(function(mutations) {
+					var $container = findProductsContainer();
+					if ($container && $container.length && !$container.hasClass('is-grid') && !$container.hasClass('is-list')) {
+						$container.addClass('is-grid');
+					}
+				});
+				
+				observer.observe(document.body, {
+					childList: true,
+					subtree: true
+				});
+			}
+
+			// Sorting - show/hide dropdown on hover and click
+			$(document).on('mouseenter', '.auction-sort-wrapper', function() {
+				$(this).find('.auction-sort-dropdown').stop(true, true).fadeIn(200);
+			});
+			
+			$(document).on('mouseleave', '.auction-sort-wrapper', function() {
+				$(this).find('.auction-sort-dropdown').stop(true, true).fadeOut(200);
+			});
+			
+			// Click on sort button - toggle dropdown
+			$(document).on('click', '.auction-sort-btn', function(e) {
+				e.stopPropagation();
+				var $wrapper = $(this).closest('.auction-sort-wrapper');
+				var $dropdown = $wrapper.find('.auction-sort-dropdown');
+				
+				// Close all other dropdowns
+				$('.auction-sort-dropdown').not($dropdown).fadeOut(200);
+				
+				// Toggle current dropdown
+				$dropdown.stop(true, true).fadeToggle(200);
+			});
+			
+			// Click on sort option (ascending/descending)
+			$(document).on('click', '.auction-sort-option', function(e) {
+				e.stopPropagation();
+				var field = $(this).data('sort');
+				var direction = $(this).data('direction');
+				
+				currentSort.field = field;
+				currentSort.direction = direction;
+				
+				// Update active states (only for dropdown options, not buttons)
+				$('.auction-sort-option').removeClass('active');
 				$(this).addClass('active');
+				
+				// Update button text to show current direction
+				var $btn = $(this).closest('.auction-sort-wrapper').find('.auction-sort-btn');
+				var btnText = $btn.text().replace(/\s*[↑↓↕]\s*$/, '').trim();
+				$btn.text(btnText + ' ' + (direction === 'asc' ? '↑' : '↓'));
+				
+				// Close dropdown
+				$(this).closest('.auction-sort-dropdown').fadeOut(200);
+				
+				// Apply sorting
 				sortProducts();
+			});
+			
+			// Close dropdowns when clicking outside
+			$(document).on('click', function(e) {
+				if (!$(e.target).closest('.auction-sort-wrapper').length) {
+					$('.auction-sort-dropdown').fadeOut(200);
+				}
 			});
 
 			$(document).on('click', '#auction-clear-sort', function() {
 				currentSort = {field: null, direction: 'asc'};
 				$('.auction-sort-btn').removeClass('active');
+				$('.auction-sort-option').removeClass('active');
+				
+				// Reset button texts to show ↕
+				$('.auction-sort-btn').each(function() {
+					var $btn = $(this);
+					var btnText = $btn.text().replace(/\s*[↑↓↕]\s*$/, '').trim();
+					$btn.text(btnText + ' ↕');
+				});
+				
+				// Close all dropdowns
+				$('.auction-sort-dropdown').fadeOut(200);
+				
 				// Reset order by re-adding all items in original order
-				var $container = $('.auction-products-container, .products').first();
-				var $items = $container.find('.auction-product-item, li.product').detach().sort(function(a, b) {
-					var orderA = parseInt($(a).data('original-index') || $(a).index(), 10);
-					var orderB = parseInt($(b).data('original-index') || $(b).index(), 10);
+				var $container = findProductsContainer();
+				if (!$container || !$container.length) {
+					$container = $('.auction-products-container, .products').first();
+				}
+				
+				// Get all items (including hidden ones from search/filter)
+				var $items = $container.find('.auction-product-item, li.product');
+				
+				// Store current layout to preserve it
+				var isListMode = $container.hasClass('is-list');
+				var containerDisplay = $container.css('display');
+				var containerFlexWrap = $container.css('flex-wrap');
+				
+				// Detach and sort by original index
+				$items = $items.detach().sort(function(a, b) {
+					var orderA = parseInt($(a).data('original-index'), 10);
+					var orderB = parseInt($(b).data('original-index'), 10);
+					// If original-index is not set, use a large number to put them at the end
+					if (isNaN(orderA)) orderA = 999999;
+					if (isNaN(orderB)) orderB = 999999;
 					return orderA - orderB;
 				});
+				
+				// Append items back in original order
 				$container.append($items);
-				updateResultsCount();
+				
+				// Preserve layout without changing styles
+				if (!isListMode) {
+					if (containerDisplay === 'flex' || containerDisplay === 'grid') {
+						$container.css('display', containerDisplay);
+					}
+					if (containerFlexWrap && containerFlexWrap !== 'nowrap') {
+						$container.css('flex-wrap', containerFlexWrap);
+					}
+				}
+				
+				// Re-apply filter to maintain search/filter state
+				filterProducts();
 			});
 
 			function filterProducts() {
-				var searchTerm = ($('#auction-search').val() || '').toLowerCase().trim();
+				// Support both search input IDs
+				var $searchInput = $('#auction-search');
+				if (!$searchInput.length) {
+					$searchInput = $('#auction-search-input');
+				}
+				var searchTerm = ($searchInput.val() || '').toLowerCase().trim();
+				
+				// Support both category controls
 				var categorySlug = $('#auction-category-filter').val() || '';
+				if (!categorySlug) {
+					categorySlug = $('#auction-category-select').val() || '';
+				}
+				
 				var visible = 0;
 
-				$('.auction-product-item, .products li.product').each(function() {
+				// Get container and ALL items in it (grid + shortcode cards)
+				var $container = findProductsContainer();
+				if (!$container || !$container.length) {
+					$container = $('.auction-products-container, .products').first();
+				}
+				var $allItems = $container.find('.auction-product-item, li.product, .auction-product-card');
+
+				$allItems.each(function() {
 					var $item = $(this);
 					
 					// Get title from data attribute or fallback to element text
-					var title = ($item.attr('data-title') || $item.find('h2.woocommerce-loop-product__title, h2.product-title, h3').text() || '').toLowerCase().trim();
+					var title = $item.attr('data-title');
+					if (!title || title === '') {
+						var $titleEl = $item.find('h2.woocommerce-loop-product__title, h2.product-title, h3, .auction-product-title, .product-title').first();
+						if ($titleEl.length) {
+							title = $titleEl.text();
+						} else {
+							title = $item.find('a.woocommerce-LoopProduct-link, a').first().text() || '';
+						}
+					}
+					title = (title ? String(title) : '').toLowerCase().trim();
 					
-					// Get category from data attribute or classes
-					var itemCategory = $item.attr('data-category-slug') || '';
-					if (!itemCategory) {
+					// Categories
+					var itemCategories = [];
+					var dataCategory = $item.attr('data-category') || '';
+					if (dataCategory) {
+						itemCategories = dataCategory.trim().split(/\s+/);
+					}
+					var dataCategorySlug = $item.attr('data-category-slug') || '';
+					if (dataCategorySlug && itemCategories.indexOf(dataCategorySlug) === -1) {
+						itemCategories.push(dataCategorySlug);
+					}
+					if (itemCategories.length === 0) {
 						var classes = $item.attr('class') || '';
-						var catMatch = classes.match(/product_cat-([^\s]+)/);
-						if (catMatch) itemCategory = catMatch[1];
+						var catMatches = classes.match(/product_cat-([^\s]+)/g);
+						if (catMatches) {
+							catMatches.forEach(function(match) {
+								var slug = match.replace('product_cat-', '');
+								if (itemCategories.indexOf(slug) === -1) {
+									itemCategories.push(slug);
+								}
+							});
+						}
 					}
 
-					var matchesSearch = !searchTerm || title.indexOf(searchTerm) !== -1;
-					var matchesCategory = !categorySlug || itemCategory === categorySlug;
+					// Match logic
+					var matchesSearch = true;
+					if (searchTerm) {
+						matchesSearch = (title && title.indexOf(searchTerm) !== -1);
+					}
+					var matchesCategory = !categorySlug || itemCategories.indexOf(categorySlug) !== -1;
 
+					// Show / hide
 					if (matchesSearch && matchesCategory) {
-						$item.show();
+						$item.css('display', '');
 						visible++;
 					} else {
-						$item.hide();
+						$item.css('display', 'none');
 					}
 				});
 
-				// Re-apply sorting if active
-				if (currentSort.field) {
-					sortProducts();
-				}
-
+				// IMPORTANT: do NOT re-sort inside filter – this was causing items to reappear.
+				// Search should ONLY control visibility, sort controls order.
 				updateResultsCount(visible);
 			}
 
@@ -3256,10 +3753,29 @@ class Auction_Frontend {
 					return;
 				}
 
-				var $container = $('.auction-products-container, .products').first();
-				var $items = $container.find('.auction-product-item:visible, li.product:visible').detach();
+				var $container = findProductsContainer();
+				if (!$container || !$container.length) {
+					$container = $('.auction-products-container, .products').first();
+				}
 				
-				$items.sort(function(a, b) {
+				// Preserve current layout class and container state
+				var isListMode = $container.hasClass('is-list');
+				var currentLayout = isListMode ? 'is-list' : 'is-grid';
+				
+				// Store container's original display style to preserve grid layout
+				var containerDisplay = $container.css('display');
+				var containerFlexWrap = $container.css('flex-wrap');
+				
+				// Only sort visible items (those that passed the search/filter)
+				var $items = $container.find('.auction-product-item:visible, li.product:visible');
+				
+				// If no visible items, don't sort (this can happen if search filters everything out)
+				if ($items.length === 0) {
+					return;
+				}
+				
+				// Sort items array
+				var sortedItems = $items.toArray().sort(function(a, b) {
 					var $a = $(a), $b = $(b);
 					var valA, valB;
 
@@ -3301,7 +3817,106 @@ class Auction_Frontend {
 					}
 				});
 
-				$container.append($items);
+				// Detach all items first
+				$items.detach();
+				
+				// Clear any inline styles on items that might interfere with grid layout
+				$.each(sortedItems, function(index, item) {
+					var $item = $(item);
+					// Remove inline styles that could break grid layout
+					$item.attr('style', '');
+					// Ensure no block-level display that would cause stacking
+					if (!$item.hasClass('is-list')) {
+						$item.css({
+							'display': '',
+							'float': '',
+							'width': '',
+							'max-width': '',
+							'flex-direction': '',
+							'clear': ''
+						});
+					}
+				});
+				
+				// Append sorted items back in correct order
+				$.each(sortedItems, function(index, item) {
+					$container.append(item);
+				});
+				
+				// Re-apply layout class to ensure grid layout is maintained
+				$container.removeClass('is-grid is-list').addClass(currentLayout);
+				
+				// If in grid mode, ensure container maintains flex/grid display for side-by-side layout
+				if (!isListMode) {
+					// Force container to maintain grid/flex layout - critical for side-by-side display
+					// WooCommerce typically uses flex or grid for product lists
+					if (containerDisplay === 'flex' || containerDisplay === 'grid' || !containerDisplay || containerDisplay === 'block') {
+						// If it was flex or grid, restore it. If block or empty, try flex (WooCommerce default)
+						var targetDisplay = (containerDisplay === 'flex' || containerDisplay === 'grid') ? containerDisplay : 'flex';
+						$container.css({
+							'display': targetDisplay,
+							'flex-wrap': containerFlexWrap || 'wrap',
+							'flex-direction': 'row'
+						});
+					}
+					
+					// Aggressively remove any styles from product items that would cause vertical stacking
+					$container.find('li.product, .auction-product-item').each(function() {
+						var $item = $(this);
+						// Don't override if it's in list mode
+						if (!$item.closest('.is-list').length) {
+							// Remove ALL inline styles that could break grid layout
+							$item.css({
+								'display': '',
+								'float': '',
+								'width': '',
+								'max-width': '',
+								'flex-direction': '',
+								'clear': '',
+								'margin': '',
+								'position': ''
+							});
+							
+							// Ensure item doesn't have block display without float (which causes stacking)
+							var itemDisplay = window.getComputedStyle($item[0]).display;
+							if (itemDisplay === 'block' && !$item.css('float') && !$item.css('position')) {
+								$item.css('display', '');
+							}
+						}
+					});
+					
+					// Ensure container doesn't have flex-direction: column which would stack items
+					if ($container.css('flex-direction') === 'column') {
+						$container.css('flex-direction', 'row');
+					}
+				}
+				
+				// Force browser reflow to ensure layout recalculates correctly
+				void $container[0].offsetWidth;
+				
+				// Double-check after reflow - if items are still stacking, force flex layout
+				if (!isListMode) {
+					setTimeout(function() {
+						var firstItem = $container.find('li.product, .auction-product-item').first();
+						if (firstItem.length) {
+							var itemTop = firstItem.offset().top;
+							var secondItem = $container.find('li.product, .auction-product-item').eq(1);
+							if (secondItem.length) {
+								var secondTop = secondItem.offset().top;
+								// If second item is below first (not side by side), force flex layout
+								if (secondTop > itemTop + 50) {
+									$container.css({
+										'display': 'flex',
+										'flex-wrap': 'wrap',
+										'flex-direction': 'row'
+									});
+									void $container[0].offsetWidth;
+								}
+							}
+						}
+					}, 10);
+				}
+				
 				updateResultsCount();
 			}
 
@@ -3324,8 +3939,13 @@ class Auction_Frontend {
 						// Products found or max attempts reached
 						addProductDataAttributes();
 						
-						// Store original indices for reset
-						$('.auction-product-item, .products li.product').each(function(index) {
+						// Store original indices for reset - do this immediately when products are found
+						var $container = findProductsContainer();
+						if (!$container || !$container.length) {
+							$container = $('.auction-products-container, .products').first();
+						}
+						
+						$container.find('.auction-product-item, li.product').each(function(index) {
 							$(this).data('original-index', index);
 						});
 						

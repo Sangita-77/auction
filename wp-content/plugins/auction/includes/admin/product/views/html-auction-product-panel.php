@@ -6,19 +6,14 @@
  *
  * @package Auction
  */
-
 defined( 'ABSPATH' ) || exit;
-
 $meta_prefix = $this->meta_prefix;
 $field_groups = $this->get_meta_fields();
 ?>
-
 <div id="auction_product_data" class="panel woocommerce_options_panel">
 	<div class="auction-product-panel">
 		<h2><?php esc_html_e( 'Auction Options', 'auction' ); ?></h2>
-
 		<p><?php esc_html_e( 'Configure the auction settings for this product.', 'auction' ); ?></p>
-
 		<div class="auction-subtabs" role="tablist">
 			<button type="button" class="button button-secondary is-active" data-target="general">
 				<?php esc_html_e( 'General', 'auction' ); ?>
@@ -33,7 +28,6 @@ $field_groups = $this->get_meta_fields();
 				<?php esc_html_e( 'Status', 'auction' ); ?>
 			</button>
 		</div>
-
 		<div class="auction-subtab-section is-active" data-section="general">
 			<div class="options_group">
 				<?php foreach ( $field_groups['general'] as $field_key => $config ) : ?>
@@ -41,7 +35,6 @@ $field_groups = $this->get_meta_fields();
 				<?php endforeach; ?>
 			</div>
 		</div>
-
 		<div class="auction-subtab-section" data-section="price">
 			<div class="options_group">
 				<?php foreach ( $field_groups['price'] as $field_key => $config ) : ?>
@@ -49,7 +42,6 @@ $field_groups = $this->get_meta_fields();
 				<?php endforeach; ?>
 			</div>
 		</div>
-
 		<div class="auction-subtab-section" data-section="extras">
 			<p>
 				<?php esc_html_e( 'Note: In this section, you can override the plugin\'s general settings and set specific settings for this auction product.', 'auction' ); ?>
@@ -66,7 +58,6 @@ $field_groups = $this->get_meta_fields();
 				<?php endforeach; ?>
 			</div>
 		</div>
-
 		<div class="auction-subtab-section" data-section="status">
 			<?php
 			$enabled = ( $values['enabled'] ?? 'no' ) === 'yes';
@@ -133,7 +124,6 @@ $field_groups = $this->get_meta_fields();
 		</div>
 	</div>
 </div>
-
 <script type="text/html" id="auction-rule-template">
 	<tr>
 		<td>
@@ -150,4 +140,3 @@ $field_groups = $this->get_meta_fields();
 		</td>
 	</tr>
 </script>
-

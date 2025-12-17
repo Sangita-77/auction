@@ -306,10 +306,12 @@
 			if ( diff <= 0 ) {
 				$el.text( '--:--:--' );
 
-				// Check if we're on the auction page (where we want to show closed auctions if setting allows)
+				// Check if we're on the auction page or shop page (where we want to show closed auctions if setting allows)
 				// Note: If "Hide ended auctions" setting is enabled, PHP query filters them out, so they won't be in DOM
 				var isAuctionPage = false;
-				// Check URL query parameter
+				var isShopPage = false;
+				
+				// Check URL query parameter for auction page
 				if ( window.location.search.indexOf( 'auction_page=1' ) !== -1 ) {
 					isAuctionPage = true;
 				}
@@ -317,10 +319,27 @@
 				if ( ! isAuctionPage && window.location.pathname.indexOf( '/auctions' ) !== -1 ) {
 					isAuctionPage = true;
 				}
+				
+				// Check if we're on the shop page (WooCommerce shop page, not category pages)
+				// Shop page has 'woocommerce-shop' body class or '/shop' in path without category/tag
+				if ( ! isAuctionPage ) {
+					if ( $( 'body' ).hasClass( 'woocommerce-shop' ) ) {
+						isShopPage = true;
+					} else if ( window.location.pathname.indexOf( '/shop' ) !== -1 ) {
+						// Check if it's not a category or tag page
+						var pathParts = window.location.pathname.split( '/' ).filter( function( part ) {
+							return part && part !== 'shop';
+						} );
+						// If no category/tag in path after /shop, it's the shop page
+						if ( pathParts.length === 0 || ( pathParts.length === 1 && pathParts[0] !== 'product-category' && pathParts[0] !== 'product-tag' ) ) {
+							isShopPage = true;
+						}
+					}
+				}
 
-				// Only hide product cards on archive/listing pages, not on single product pages or auction page.
-				// On single product pages and auction page (when "Hide ended auctions" is disabled), show ended auctions.
-				if ( ! $( 'body' ).hasClass( 'single-product' ) && ! isAuctionPage ) {
+				// Only hide product cards on archive/listing pages, not on single product pages, auction page, or shop page.
+				// On single product pages, auction page, and shop page (when "Hide ended auctions" is disabled), show ended auctions.
+				if ( ! $( 'body' ).hasClass( 'single-product' ) && ! isAuctionPage && ! isShopPage ) {
 					var $productCard = $el.closest( '.product, .woocommerce-product, .wc-block-grid__product' );
 
 					if ( $productCard.length && ! $productCard.data( 'auction-hidden' ) ) {

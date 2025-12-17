@@ -4,39 +4,32 @@
  *
  * @package Auction
  */
-
 defined( 'ABSPATH' ) || exit;
-
 use DateTimeImmutable;
 use DateTimeZone;
 use Exception;
-
 /**
  * Handles WooCommerce product data panels for auctions.
  */
 class Auction_Product_Tabs {
-
 	/**
 	 * Singleton instance.
 	 *
 	 * @var Auction_Product_Tabs|null
 	 */
 	private static $instance = null;
-
 	/**
 	 * Meta prefix.
 	 *
 	 * @var string
 	 */
 	private $meta_prefix = '_auction_';
-
 	/**
 	 * Constructor.
 	 */
 	private function __construct() {
 		$this->hooks();
 	}
-
 	/**
 	 * Get singleton instance.
 	 *
@@ -46,10 +39,8 @@ class Auction_Product_Tabs {
 		if ( null === self::$instance ) {
 			self::$instance = new self();
 		}
-
 		return self::$instance;
 	}
-
 	/**
 	 * Register hooks.
 	 *
@@ -60,7 +51,6 @@ class Auction_Product_Tabs {
 		add_action( 'woocommerce_product_data_panels', array( $this, 'render_product_panel' ) );
 		add_action( 'woocommerce_admin_process_product_object', array( $this, 'save_product_meta' ) );
 	}
-
 	/**
 	 * Register Auction tab within WooCommerce product data panels.
 	 *
@@ -75,10 +65,8 @@ class Auction_Product_Tabs {
 			'class'    => array( 'show_if_simple', 'show_if_variable', 'show_if_external', 'show_if_grouped' ),
 			'priority' => 80,
 		);
-
 		return $tabs;
 	}
-
 	/**
 	 * Get product object helper.
 	 *
@@ -86,14 +74,11 @@ class Auction_Product_Tabs {
 	 */
 	private function get_current_product(): ?WC_Product {
 		global $post;
-
 		if ( empty( $post ) ) {
 			return null;
 		}
-
 		return wc_get_product( $post->ID );
 	}
-
 	/**
 	 * Render Auction panel HTML.
 	 *
@@ -101,22 +86,17 @@ class Auction_Product_Tabs {
 	 */
 	public function render_product_panel(): void {
 		$product = $this->get_current_product();
-
 		$values = array();
-
 		foreach ( $this->get_meta_fields_flat() as $field_key => $config ) {
 			$meta_key        = $this->meta_prefix . $field_key;
 			$default         = $config['default'] ?? '';
 			$values[ $field_key ] = $product ? $product->get_meta( $meta_key, true ) : $default;
-
 			if ( '' === $values[ $field_key ] && isset( $config['default'] ) ) {
 				$values[ $field_key ] = $config['default'];
 			}
 		}
-
 		$config     = $product ? Auction_Product_Helper::get_config( $product ) : array();
 		$latest_bid = $product ? Auction_Bid_Manager::get_leading_bid( $product->get_id() ) : null;
-
 		$values['latest_bid']    = $this->prepare_latest_bid_display( $latest_bid, $config );
 		$values['display_start'] = ! empty( $config['start_timestamp'] )
 			? date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $config['start_timestamp'] )
@@ -124,7 +104,6 @@ class Auction_Product_Tabs {
 		$values['display_end']   = ! empty( $config['end_timestamp'] )
 			? date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $config['end_timestamp'] )
 			: __( 'Not scheduled', 'auction' );
-
 		$values['automatic_increment_rules'] = $this->normalize_rules_value( $values['automatic_increment_rules'] ?? array() );
 
 		// Get all bids for the product to display in status section
@@ -132,7 +111,6 @@ class Auction_Product_Tabs {
 
 		include __DIR__ . '/views/html-auction-product-panel.php';
 	}
-
 	/**
 	 * Prepare latest bid display data.
 	 *
@@ -145,7 +123,6 @@ class Auction_Product_Tabs {
 		if ( empty( $bid ) ) {
 			return array();
 		}
-
 		return array(
 			'name'   => $this->format_bidder_name( $bid, $config ),
 			'amount' => Auction_Product_Helper::to_float( $bid['bid_amount'] ?? 0 ),
@@ -177,6 +154,7 @@ class Auction_Product_Tabs {
 		return $formatted_bids;
 	}
 
+	
 	/**
 	 * Format bidder name for admin panel.
 	 *
@@ -189,28 +167,22 @@ class Auction_Product_Tabs {
 		if ( 'yes' === ( $config['sealed'] ?? 'no' ) ) {
 			return __( 'Hidden (sealed auction)', 'auction' );
 		}
-
 		if ( ! empty( $record['user_id'] ) ) {
 			$user = get_user_by( 'id', absint( $record['user_id'] ) );
 			if ( $user ) {
 				$display_type = Auction_Settings::get( 'bid_username_display', 'masked' );
 				$name         = $user->display_name ?: $user->user_login;
-
 				if ( 'full' === $display_type ) {
 					return $name;
 				}
-
 				return mb_substr( $name, 0, 1 ) . '****' . mb_substr( $name, -1 );
 			}
 		}
-
 		if ( ! empty( $record['session_id'] ) ) {
 			return __( 'Guest bidder', 'auction' );
 		}
-
 		return __( 'Unknown bidder', 'auction' );
 	}
-
 	/**
 	 * Format bid time for display.
 	 *
@@ -222,16 +194,12 @@ class Auction_Product_Tabs {
 		if ( empty( $raw ) ) {
 			return '';
 		}
-
 		$datetime = self::parse_datetime_value( $raw );
-
 		if ( ! $datetime ) {
 			return '';
 		}
-
 		return date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $datetime->getTimestamp() );
 	}
-
 	/**
 	 * Normalize saved rules data.
 	 *
@@ -246,28 +214,22 @@ class Auction_Product_Tabs {
 				$raw_value = $json;
 			}
 		}
-
 		if ( ! is_array( $raw_value ) ) {
 			return array();
 		}
-
 		$rules = array();
-
 		foreach ( $raw_value as $rule ) {
 			if ( ! is_array( $rule ) ) {
 				continue;
 			}
-
 			$rules[] = array(
 				'from'      => $rule['from'] ?? '',
 				'to'        => $rule['to'] ?? '',
 				'increment' => $rule['increment'] ?? '',
 			);
 		}
-
 		return $rules;
 	}
-
 	/**
 	 * Normalize datetime input value.
 	 *
@@ -277,10 +239,8 @@ class Auction_Product_Tabs {
 	 */
 	private function normalize_datetime_input( string $value ): string {
 		$datetime = self::parse_datetime_value( $value, wp_timezone() );
-
 		return $datetime ? $datetime->setTimezone( new DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' ) : '';
 	}
-
 	/**
 	 * Save product meta on update.
 	 *
@@ -290,10 +250,8 @@ class Auction_Product_Tabs {
 	 */
 	public function save_product_meta( WC_Product $product ): void {
 		$meta_fields = $this->get_meta_fields_flat();
-
 		foreach ( $meta_fields as $field_key => $config ) {
 			$meta_key = $this->meta_prefix . $field_key;
-
 			switch ( $config['type'] ) {
 				case 'checkbox':
 					$value = isset( $_POST[ $meta_key ] ) ? 'yes' : 'no';
@@ -319,7 +277,6 @@ class Auction_Product_Tabs {
 							if ( empty( $rule['increment'] ) ) {
 								continue;
 							}
-
 							$value[] = array(
 								'from'      => sanitize_text_field( wp_unslash( $rule['from'] ?? '' ) ),
 								'to'        => sanitize_text_field( wp_unslash( $rule['to'] ?? '' ) ),
@@ -332,23 +289,18 @@ class Auction_Product_Tabs {
 					$value = isset( $_POST[ $meta_key ] ) ? sanitize_text_field( wp_unslash( $_POST[ $meta_key ] ) ) : '';
 					break;
 			}
-
 			if ( 'checkbox' === $config['type'] && 'no' === $value && empty( $config['persist_false'] ) ) {
 				$product->delete_meta_data( $meta_key );
 				continue;
 			}
-
 			if ( '' === $value && empty( $config['allow_empty'] ) ) {
 				$product->delete_meta_data( $meta_key );
 				continue;
 			}
-
 			$product->update_meta_data( $meta_key, $value );
 		}
-
 		$this->synchronize_catalog_price( $product );
 	}
-
 	/**
 	 * Ensure auction products maintain a visible catalog price.
 	 *
@@ -358,11 +310,9 @@ class Auction_Product_Tabs {
 	 */
 	private function synchronize_catalog_price( WC_Product $product ): void {
 		$is_enabled = 'yes' === $product->get_meta( $this->meta_prefix . 'enabled', true );
-
 		if ( ! $is_enabled ) {
 			return;
 		}
-
 		$start_price      = Auction_Product_Helper::to_float(
 			$product->get_meta( $this->meta_prefix . 'start_price', true )
 		);
@@ -373,30 +323,24 @@ class Auction_Product_Tabs {
 		$buy_now_price    = Auction_Product_Helper::to_float(
 			$product->get_meta( $this->meta_prefix . 'buy_now_price', true )
 		);
-
 		if ( $buy_now_enabled && $buy_now_price > 0 ) {
 			$visible_price = $buy_now_price;
 		} else {
 			$visible_price = $current_bid > 0 ? $current_bid : $start_price;
 		}
-
 		if ( $visible_price <= 0 ) {
 			return;
 		}
-
 		if ( '' === $product->get_regular_price() || $product->get_regular_price() <= 0 ) {
 			$product->set_regular_price( $visible_price );
 		}
-
 		if ( '' === $product->get_price() || $product->get_price() <= 0 ) {
 			$product->set_price( $visible_price );
 		}
-
 		if ( 'hidden' === $product->get_catalog_visibility() ) {
 			$product->set_catalog_visibility( 'visible' );
 		}
 	}
-
 	/**
 	 * Flatten meta field config.
 	 *
@@ -405,16 +349,13 @@ class Auction_Product_Tabs {
 	private function get_meta_fields_flat(): array {
 		$groups = $this->get_meta_fields();
 		$flat   = array();
-
 		foreach ( $groups as $fields ) {
 			foreach ( $fields as $field_key => $config ) {
 				$flat[ $field_key ] = $config;
 			}
 		}
-
 		return $flat;
 	}
-
 	/**
 	 * Render a WooCommerce field.
 	 *
@@ -427,7 +368,6 @@ class Auction_Product_Tabs {
 	public function render_field( string $field_key, array $config, array $values ): string {
 		$meta_key = $this->meta_prefix . $field_key;
 		$value    = $values[ $field_key ] ?? ( $config['default'] ?? '' );
-
 		$defaults = array(
 			'id'          => $meta_key,
 			'label'       => $config['label'] ?? '',
@@ -435,9 +375,7 @@ class Auction_Product_Tabs {
 			'desc_tip'    => ! empty( $config['description'] ),
 			'wrapper_class' => 'auction-field ' . ( $config['wrapper_class'] ?? '' ),
 		);
-
 		ob_start();
-
 		switch ( $config['type'] ) {
 			case 'checkbox':
 				woocommerce_wp_checkbox(
@@ -496,10 +434,8 @@ class Auction_Product_Tabs {
 				);
 				break;
 		}
-
 		return ob_get_clean();
 	}
-
 	/**
 	 * Render rules table field.
 	 *
@@ -512,11 +448,9 @@ class Auction_Product_Tabs {
 	public function render_rules_field( string $field_key, array $config, array $values ): string {
 		$meta_key = $this->meta_prefix . $field_key;
 		$rules    = $values[ $field_key ] ?? array();
-
 		if ( empty( $rules ) ) {
 			$rules = array();
 		}
-
 		ob_start();
 		?>
 		<p class="form-field">
@@ -527,7 +461,6 @@ class Auction_Product_Tabs {
 				<?php echo esc_html( $config['description'] ); ?>
 			</span>
 		</p>
-
 		<table class="auction-rules-table">
 			<thead>
 				<tr>
@@ -564,17 +497,14 @@ class Auction_Product_Tabs {
 				<?php endif; ?>
 			</tbody>
 		</table>
-
 		<p>
 			<button type="button" class="button auction-add-rule">
 				<?php esc_html_e( 'Add rule', 'auction' ); ?>
 			</button>
 		</p>
 		<?php
-
 		return ob_get_clean();
 	}
-
 	/**
 	 * Format datetime meta for input field.
 	 *
@@ -584,14 +514,11 @@ class Auction_Product_Tabs {
 	 */
 	private function format_datetime_value( string $value ): string {
 		$datetime = self::parse_datetime_value( $value, new DateTimeZone( 'UTC' ) );
-
 		if ( ! $datetime ) {
 			return '';
 		}
-
 		return $datetime->setTimezone( wp_timezone() )->format( 'Y-m-d\TH:i' );
 	}
-
 	/**
 	 * Get meta fields definition.
 	 *
@@ -755,7 +682,6 @@ class Auction_Product_Tabs {
 			),
 		);
 	}
-
 	/**
 	 * Parse a datetime string into site-local DateTimeImmutable.
 	 *
@@ -765,22 +691,17 @@ class Auction_Product_Tabs {
 	 */
 	private static function parse_datetime_value( string $value, ?DateTimeZone $assumed_timezone = null ): ?DateTimeImmutable {
 		$value = trim( (string) $value );
-
 		if ( '' === $value ) {
 			return null;
 		}
-
 		$assumed_timezone = $assumed_timezone ?: wp_timezone();
 		$candidates       = array( $value );
-
 		if ( str_contains( $value, 'T' ) ) {
 			$candidates[] = str_replace( 'T', ' ', $value );
 		}
-
 		if ( preg_match( '/^\d{2}-\d{2}-\d{4}/', $value ) ) {
 			$candidates[] = preg_replace( '/(\d{2})-(\d{2})-(\d{4})/u', '$3-$2-$1', $value );
 		}
-
 		$formats = array(
 			'Y-m-d H:i:s',
 			'Y-m-d H:i',
@@ -795,30 +716,22 @@ class Auction_Product_Tabs {
 			'd/m/Y h:i a',
 			'd/m/Y h:i A',
 		);
-
 		foreach ( $candidates as $candidate ) {
 			$candidate = preg_replace( '/\s+/', ' ', $candidate );
-
 			foreach ( $formats as $format ) {
 				$dt = DateTimeImmutable::createFromFormat( $format, $candidate, $assumed_timezone );
-
 				if ( $dt instanceof DateTimeImmutable ) {
 					return $dt;
 				}
 			}
-
 			try {
 				$dt = new DateTimeImmutable( $candidate, $assumed_timezone );
-
 				return $dt;
 			} catch ( Exception $e ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
 				// Ignore and try next candidate.
 			}
 		}
-
 		return null;
 	}
 }
-
 Auction_Product_Tabs::instance();
-

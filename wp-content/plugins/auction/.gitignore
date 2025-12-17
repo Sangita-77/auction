@@ -1,52 +1,52 @@
-# WordPress Debug Log
-debug.log
-
-# OS Files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-desktop.ini
-
-# IDE Files
-.vscode/
-.idea/
-*.sublime-project
-*.sublime-workspace
-*.swp
-*.swo
-*~
-
-# Node modules (if you use npm)
-node_modules/
-package-lock.json
-yarn.lock
-
-# Build files
-dist/
-build/
-*.zip
-*.tar.gz
-
-# Temporary files
-*.tmp
-*.temp
-*.bak
-*.backup
-*~
-
-# PHP specific
-composer.lock
-vendor/
-
-# WordPress specific
-wp-config.php
-.htaccess
-
-# Plugin specific temporary files
-*.log
-*.cache
-
+# WordPress Debug Log
+debug.log
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE Files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# Node modules (if you use npm)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build files
+dist/
+build/
+*.zip
+*.tar.gz
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+
+# PHP specific
+composer.lock
+vendor/
+
+# WordPress specific
+wp-config.php
+.htaccess
+
+# Plugin specific temporary files
+*.log
+*.cache
+
