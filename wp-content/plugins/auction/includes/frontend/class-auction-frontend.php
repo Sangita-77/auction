@@ -2094,6 +2094,42 @@ class Auction_Frontend {
 					});
 				});
 
+				// Function to move product title into auction-loop-info for list view (vanilla JS version)
+				function moveTitleToAuctionInfoVanilla(container, isList) {
+					var products = container.querySelectorAll('li.product');
+					Array.prototype.forEach.call(products, function(product) {
+						var title = product.querySelector('h2.woocommerce-loop-product__title');
+						var auctionInfo = product.querySelector('.auction-loop-info');
+						
+						if (isList) {
+							// Move title into auction-loop-info if not already there
+							if (title && auctionInfo && !auctionInfo.querySelector('.auction-product-title-in-list')) {
+								var titleHtml = title.innerHTML;
+								// Store original HTML for restoration
+								title.setAttribute('data-original-html', titleHtml);
+								// Create title element inside auction-loop-info
+								var titleDiv = document.createElement('div');
+								titleDiv.className = 'auction-product-title-in-list';
+								titleDiv.innerHTML = titleHtml;
+								auctionInfo.insertBefore(titleDiv, auctionInfo.firstChild);
+							}
+						} else {
+							// Restore title to original position
+							if (auctionInfo) {
+								var titleInList = auctionInfo.querySelector('.auction-product-title-in-list');
+								if (titleInList && title) {
+									// Restore original HTML if stored
+									var originalHtml = title.getAttribute('data-original-html');
+									if (originalHtml) {
+										title.innerHTML = originalHtml;
+									}
+									auctionInfo.removeChild(titleInList);
+								}
+							}
+						}
+					});
+				}
+				
 				// Layout toggle - support both class and ID versions
 				if (productsContainer) {
 					// Handle ID version (#auction-layout-toggle - single button)
@@ -2115,8 +2151,12 @@ class Auction_Frontend {
 							productsContainer.classList.remove('is-grid', 'is-list', 'grid-view', 'list-view');
 							if (newLayout === 'list') {
 								productsContainer.classList.add('is-list');
+								// Move product titles into auction-loop-info
+								moveTitleToAuctionInfoVanilla(productsContainer, true);
 							} else {
 								productsContainer.classList.add('is-grid');
+								// Restore product titles to original position
+								moveTitleToAuctionInfoVanilla(productsContainer, false);
 							}
 							
 							// Update button text
@@ -2154,9 +2194,13 @@ class Auction_Frontend {
 							if (layout === 'list') {
 								productsContainer.classList.remove('is-grid');
 								productsContainer.classList.add('is-list');
+								// Move product titles into auction-loop-info
+								moveTitleToAuctionInfoVanilla(productsContainer, true);
 							} else {
 								productsContainer.classList.remove('is-list');
 								productsContainer.classList.add('is-grid');
+								// Restore product titles to original position
+								moveTitleToAuctionInfoVanilla(productsContainer, false);
 							}
 						});
 					}
@@ -3189,6 +3233,37 @@ class Auction_Frontend {
 			flex: 1 !important;
 		}
 		
+		/* Hide the original product title in list view (we'll show it inside auction-loop-info) */
+		.products.is-list li.product h2.woocommerce-loop-product__title,
+		.products.is-list li.product .woocommerce-loop-product__title {
+			display: none !important;
+		}
+		
+		/* Style the product title inside auction-loop-info in list view */
+		.products.is-list li.product .auction-loop-info .auction-product-title-in-list {
+			font-size: 18px !important;
+			font-weight: bold !important;
+			margin-bottom: 10px !important;
+			padding-bottom: 10px !important;
+			border-bottom: 1px solid #e0e0e0 !important;
+		}
+		
+		/* Hide filtered out items even in list view - must override !important rules */
+		.products.is-list li.product.auction-filtered-out,
+		.products.auction-products-container.is-list li.product.auction-filtered-out,
+		.auction-products-container.is-list li.product.auction-filtered-out,
+		li.product.auction-filtered-out,
+		.auction-product-item.auction-filtered-out,
+		.auction-product-card.auction-filtered-out {
+			display: none !important;
+			visibility: hidden !important;
+			opacity: 0 !important;
+			height: 0 !important;
+			overflow: hidden !important;
+			margin: 0 !important;
+			padding: 0 !important;
+		}
+		
 		/* Grid layout - ensure WooCommerce's default grid layout is maintained */
 		/* Don't override - let WooCommerce handle the default layout */
 		.products.is-grid li.product,
@@ -3437,6 +3512,40 @@ class Auction_Frontend {
 				return null;
 			}
 			
+			// Function to move product title into auction-loop-info for list view
+			function moveTitleToAuctionInfo($container, isList) {
+				$container.find('li.product').each(function() {
+					var $product = $(this);
+					var $title = $product.find('h2.woocommerce-loop-product__title').first();
+					var $auctionInfo = $product.find('.auction-loop-info').first();
+					
+					if (isList) {
+						// Move title into auction-loop-info if not already there
+						if ($title.length && $auctionInfo.length && !$auctionInfo.find('.auction-product-title-in-list').length) {
+							var titleText = $title.text();
+							var titleHtml = $title.html();
+							// Store original title for restoration
+							$title.data('original-html', titleHtml);
+							// Create title element inside auction-loop-info
+							$auctionInfo.prepend('<div class="auction-product-title-in-list">' + titleHtml + '</div>');
+						}
+					} else {
+						// Restore title to original position
+						if ($auctionInfo.length) {
+							var $titleInList = $auctionInfo.find('.auction-product-title-in-list');
+							if ($titleInList.length && $title.length) {
+								// Restore original HTML if stored
+								var originalHtml = $title.data('original-html');
+								if (originalHtml) {
+									$title.html(originalHtml);
+								}
+								$titleInList.remove();
+							}
+						}
+					}
+				});
+			}
+			
 			// Layout toggle
 			$(document).on('click', '#auction-layout-toggle', function(e) {
 				e.preventDefault();
@@ -3453,8 +3562,12 @@ class Auction_Frontend {
 					$container.removeClass('is-grid is-list grid-view list-view');
 					if (newLayout === 'list') {
 						$container.addClass('is-list');
+						// Move product titles into auction-loop-info
+						moveTitleToAuctionInfo($container, true);
 					} else {
 						$container.addClass('is-grid');
+						// Restore product titles to original position
+						moveTitleToAuctionInfo($container, false);
 					}
 					console.log('Auction layout toggle: Applied', newLayout, 'layout to container', $container[0]);
 				} else {
@@ -3467,8 +3580,12 @@ class Auction_Frontend {
 							$container.removeClass('is-grid is-list grid-view list-view');
 							if (newLayout === 'list') {
 								$container.addClass('is-list');
+								// Move product titles into auction-loop-info
+								moveTitleToAuctionInfo($container, true);
 							} else {
 								$container.addClass('is-grid');
+								// Restore product titles to original position
+								moveTitleToAuctionInfo($container, false);
 							}
 							console.log('Auction layout toggle: Found container via product item', $container[0]);
 						} else {
@@ -3478,8 +3595,12 @@ class Auction_Frontend {
 								$container.removeClass('is-grid is-list grid-view list-view');
 								if (newLayout === 'list') {
 									$container.addClass('is-list');
+									// Move product titles into auction-loop-info
+									moveTitleToAuctionInfo($container, true);
 								} else {
 									$container.addClass('is-grid');
+									// Restore product titles to original position
+									moveTitleToAuctionInfo($container, false);
 								}
 								console.log('Auction layout toggle: Found fallback container', $container[0]);
 							} else {
@@ -3501,6 +3622,36 @@ class Auction_Frontend {
 				}
 				
 				$(this).text(newLayout === 'grid' ? '☰' : '⧉');
+			});
+			
+			// Handle class-based layout toggle (container with multiple buttons)
+			$(document).on('click', '.auction-layout-toggle .layout-toggle-button', function(e) {
+				e.preventDefault();
+				e.stopPropagation();
+				
+				var $btn = $(this);
+				var layout = $btn.attr('data-layout');
+				if (!layout) { return; }
+				
+				// Update all buttons
+				$btn.siblings('.layout-toggle-button').removeClass('is-active');
+				$btn.addClass('is-active');
+				
+				// Find products container
+				var $container = findProductsContainer();
+				
+				if ($container && $container.length) {
+					$container.removeClass('is-grid is-list grid-view list-view');
+					if (layout === 'list') {
+						$container.addClass('is-list');
+						// Move product titles into auction-loop-info
+						moveTitleToAuctionInfo($container, true);
+					} else {
+						$container.addClass('is-grid');
+						// Restore product titles to original position
+						moveTitleToAuctionInfo($container, false);
+					}
+				}
 			});
 			
 			// Initialize default grid layout on page load and watch for products
@@ -3721,17 +3872,29 @@ class Auction_Frontend {
 
 					// Match logic
 					var matchesSearch = true;
-					if (searchTerm) {
-						matchesSearch = (title && title.indexOf(searchTerm) !== -1);
+					if (searchTerm && searchTerm.length > 0) {
+						matchesSearch = (title && title.length > 0 && title.indexOf(searchTerm) !== -1);
 					}
 					var matchesCategory = !categorySlug || itemCategories.indexOf(categorySlug) !== -1;
 
-					// Show / hide
+					// Show / hide - use class-based approach to work with list view CSS !important
 					if (matchesSearch && matchesCategory) {
-						$item.css('display', '');
+						// Show item - remove filter class and reset styles
+						$item.removeClass('auction-filtered-out');
+						// Clear inline styles that might interfere
+						$item.css({
+							'display': '',
+							'visibility': '',
+							'opacity': '',
+							'height': '',
+							'overflow': '',
+							'margin': '',
+							'padding': ''
+						});
 						visible++;
 					} else {
-						$item.css('display', 'none');
+						// Hide item - add class which has !important CSS rules
+						$item.addClass('auction-filtered-out');
 					}
 				});
 
