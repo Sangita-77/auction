@@ -1964,47 +1964,6 @@ class Auction_Frontend {
 			</div>
 		</div>
 
-		<style>
-			.auction-listing-wrapper { margin: 20px 0; }
-			.auction-listing-header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; padding: 15px 20px; background: #f5f5f5; border-radius: 4px; margin-bottom: 20px; }
-			.auction-listing-header strong { display: block; font-size: 18px; }
-			.auction-tabs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 15px; }
-			.auction-tab-button { border: none; padding: 10px 18px; cursor: pointer; background: #e0e0e0; border-radius: 3px 3px 0 0; font-weight: 600; }
-			.auction-tab-button.is-active { background: #ff6600; color: #fff; }
-			.auction-tab-panels { border: 1px solid #ddd; padding: 15px; background: #fff; }
-			.auction-tab-panel { display: none; }
-			.auction-tab-panel.is-active { display: block; }
-			.auction-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
-			.auction-search input { min-width: 220px; padding: 6px 10px; }
-			.auction-category-filter select { min-width: 200px; padding: 6px 10px; }
-			.auction-layout-toggle .layout-toggle-button { border: 1px solid #ccc; background: #fafafa; padding: 6px 10px; cursor: pointer; }
-			.auction-layout-toggle .layout-toggle-button.is-active { background: #333; color: #fff; }
-			.auction-sorting { margin: 10px 0 15px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; }
-			.auction-sorting .sort-button { border: 1px solid #ccc; background: #fafafa; padding: 5px 10px; cursor: pointer; font-size: 13px; }
-			.auction-sorting .sort-button.active { background: #ff6600; color: #fff; border-color: #ff6600; }
-			.auction-products { display: grid; gap: 15px; }
-			.auction-products.is-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
-			.auction-products.is-list { grid-template-columns: 1fr; }
-			.auction-product-card { border: 1px solid #e0e0e0; border-radius: 3px; overflow: hidden; background: #fff; display: flex; flex-direction: column; }
-			.auction-products.is-list .auction-product-card { flex-direction: row; }
-			.auction-product-image img { width: 100%; height: auto; display: block; }
-			.auction-products.is-list .auction-product-image { max-width: 200px; flex: 0 0 200px; }
-			.auction-product-content { padding: 10px 12px 12px; flex: 1; }
-			.auction-product-title { font-size: 16px; margin: 0 0 6px; }
-			.auction-product-meta, .auction-product-bids, .auction-product-end { font-size: 13px; margin: 2px 0; }
-			.auction-product-meta .meta-lot { margin-right: 10px; }
-			.meta-status { padding: 1px 6px; border-radius: 3px; font-size: 11px; text-transform: uppercase; }
-			.meta-status-active { background: #d4edda; color: #155724; }
-			.meta-status-scheduled { background: #fff3cd; color: #856404; }
-			.meta-status-ended { background: #f8d7da; color: #721c24; }
-			.auction-category-list { list-style: none; margin: 0; padding: 0; }
-			.auction-category-list li { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0; }
-			.auction-category-link { font-weight: 600; text-decoration: none; }
-			@media (max-width: 600px) {
-				.auction-listing-header { flex-direction: column; }
-				.auction-products.is-list .auction-product-image { max-width: 120px; flex-basis: 120px; }
-			}
-		</style>
 
 		<script>
 			(function() {
@@ -2938,6 +2897,9 @@ class Auction_Frontend {
 			$next_count = $scheduled_map[ $next_date ];
 		}
 
+		// $today_formatted = wp_date( get_option( 'date_format' ), $now );
+		// $next_date_formatted = $next_date ? wp_date( get_option( 'date_format' ), strtotime( $next_date ) ) : '';
+
 		$today_formatted      = wp_date( get_option( 'date_format' ), $now );
 		$next_date_formatted  = $next_date ? wp_date( get_option( 'date_format' ), strtotime( $next_date ) ) : '';
 
@@ -2969,17 +2931,17 @@ class Auction_Frontend {
 			</div>
 
 			<!-- Tabs -->
-			<div class="auction-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ddd;">
-				<button class="auction-tab active" data-tab="bid-gallery" style="padding: 10px 20px; background: #ff6600; color: white; border: none; cursor: pointer;">
+			<div class="auction-tabs" style="">
+				<button class="auction-tab active" data-tab="bid-gallery">
 					<?php esc_html_e( 'BID GALLERY', 'auction' ); ?>
 				</button>
-				<button class="auction-tab" data-tab="dates-times" style="padding: 10px 20px; background: #87ceeb; color: #333; border: none; cursor: pointer;">
+				<button class="auction-tab" data-tab="dates-times">
 					<?php esc_html_e( 'DATES & TIMES', 'auction' ); ?>
 				</button>
-				<button class="auction-tab" data-tab="terms" style="padding: 10px 20px; background: #87ceeb; color: #333; border: none; cursor: pointer;">
+				<button class="auction-tab" data-tab="terms">
 					<?php esc_html_e( 'TERMS & CONDITIONS', 'auction' ); ?>
 				</button>
-				<button class="auction-tab" data-tab="categories" style="padding: 10px 20px; background: #87ceeb; color: #333; border: none; cursor: pointer;">
+				<button class="auction-tab" data-tab="categories">
 					<?php esc_html_e( 'CATEGORIES', 'auction' ); ?>
 				</button>
 			</div>
@@ -3091,6 +3053,7 @@ class Auction_Frontend {
 			<!-- Tab Content: Dates & Times -->
 			<div class="auction-tab-content" id="dates-times" style="display: none; padding: 20px;">
 				<h3><?php esc_html_e( 'Auction Dates & Times', 'auction' ); ?></h3>
+				<!-- <p><?php //esc_html_e( 'This section displays auction dates and times. You can customize this content as needed.', 'auction' ); ?></p> -->
 				<?php if ( ! empty( $dates_times_content ) ) : ?>
 					<div class="auction-dates-times-content">
 						<?php echo $dates_times_content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
@@ -3103,6 +3066,7 @@ class Auction_Frontend {
 			<!-- Tab Content: Terms & Conditions -->
 			<div class="auction-tab-content" id="terms" style="display: none; padding: 20px;">
 				<h3><?php esc_html_e( 'Terms & Conditions', 'auction' ); ?></h3>
+				<!-- <p><?php //esc_html_e( 'This section displays terms and conditions. You can customize this content as needed.', 'auction' ); ?></p> -->
 				<?php if ( ! empty( $terms_content ) ) : ?>
 					<div class="auction-terms-content">
 						<?php echo $terms_content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
@@ -3328,13 +3292,15 @@ class Auction_Frontend {
 					var endTimestamp = 0;
 
 					if ($auctionMeta.length) {
-						// Extract bid count.
-						// Prefer explicit elements, but also support text patterns like "Current Bid:(bids: 2)" or "(2 bids)".
+						// Extract bid count from text like "(bids: 5)"
+						//var bidCountText = $auctionMeta.find('.auction-bid-count').text();
 						var bidCountText = $auctionMeta.find('.auction-bid-count, .bid-count').first().text();
 						if (!bidCountText) {
 							bidCountText = $auctionMeta.text();
 						}
 						if (bidCountText) {
+							// var bidMatch = bidCountText.match(/(\d+)/);
+							// if (bidMatch) bidCount = parseInt(bidMatch[1], 10);
 							var bidMatch = bidCountText.match(/bids:\s*(\d+)/i) || bidCountText.match(/\(\s*(\d+)\s*bids?\s*\)/i) || bidCountText.match(/(\d+)\s*bids?/i);
 							if (bidMatch && bidMatch[1]) {
 								bidCount = parseInt(bidMatch[1], 10) || 0;
