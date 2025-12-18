@@ -3219,6 +3219,56 @@ class Auction_Frontend {
 		}
 		</style>
 		<script type="text/javascript">
+		// IMMEDIATE: Capture original product order before any other scripts run
+		// This must execute immediately, not waiting for DOM ready
+		(function() {
+			function captureOriginalOrder() {
+				var containers = [
+					document.querySelector('.products.auction-products-container'),
+					document.querySelector('ul.products.auction-products-container'),
+					document.querySelector('.woocommerce ul.products'),
+					document.querySelector('ul.products'),
+					document.querySelector('.products'),
+					document.querySelector('#auction-products'),
+					document.querySelector('.auction-products'),
+					document.querySelector('.auction-products-container')
+				];
+				
+				var container = null;
+				for (var i = 0; i < containers.length; i++) {
+					if (containers[i]) {
+						container = containers[i];
+						break;
+					}
+				}
+				
+				if (!container) return;
+				
+				// Find all product items
+				var products = container.querySelectorAll('.auction-product-item, li.product, .auction-product-card');
+				
+				// Store original index as HTML attribute (persists better than jQuery data)
+				for (var j = 0; j < products.length; j++) {
+					var product = products[j];
+					// Only set if not already set (to preserve server order)
+					if (!product.getAttribute('data-original-index')) {
+						product.setAttribute('data-original-index', j);
+					}
+				}
+			}
+			
+			// Try immediately if DOM is ready
+			if (document.readyState === 'loading') {
+				document.addEventListener('DOMContentLoaded', captureOriginalOrder);
+			} else {
+				captureOriginalOrder();
+			}
+			
+			// Also try after a very short delay to catch products loaded after DOM ready
+			setTimeout(captureOriginalOrder, 50);
+			setTimeout(captureOriginalOrder, 200);
+		})();
+		
 		(function($) {
 			'use strict';
 
@@ -3715,7 +3765,8 @@ class Auction_Frontend {
 				}
 				
 				// Get all items (including hidden ones from search/filter)
-				var $items = $container.find('.auction-product-item, li.product');
+				// Include all product types that might exist
+				var $items = $container.find('.auction-product-item, li.product, .auction-product-card');
 				
 				// Store current layout to preserve it
 				var isListMode = $container.hasClass('is-list');
@@ -3723,12 +3774,28 @@ class Auction_Frontend {
 				var containerFlexWrap = $container.css('flex-wrap');
 				
 				// Detach and sort by original index
+				// Try to get from data attribute first (more reliable), then from jQuery data
 				$items = $items.detach().sort(function(a, b) {
-					var orderA = parseInt($(a).data('original-index'), 10);
-					var orderB = parseInt($(b).data('original-index'), 10);
+					var $a = $(a);
+					var $b = $(b);
+					
+					// Try both attribute and data to be safe
+					var orderA = $a.attr('data-original-index');
+					if (!orderA) {
+						orderA = $a.data('original-index');
+					}
+					orderA = parseInt(orderA, 10);
+					
+					var orderB = $b.attr('data-original-index');
+					if (!orderB) {
+						orderB = $b.data('original-index');
+					}
+					orderB = parseInt(orderB, 10);
+					
 					// If original-index is not set, use a large number to put them at the end
 					if (isNaN(orderA)) orderA = 999999;
 					if (isNaN(orderB)) orderB = 999999;
+					
 					return orderA - orderB;
 				});
 				
@@ -4039,13 +4106,21 @@ class Auction_Frontend {
 						addProductDataAttributes();
 						
 						// Store original indices for reset - do this immediately when products are found
+						// This MUST happen before any sorting occurs
 						var $container = findProductsContainer();
 						if (!$container || !$container.length) {
 							$container = $('.auction-products-container, .products').first();
 						}
 						
-						$container.find('.auction-product-item, li.product').each(function(index) {
-							$(this).data('original-index', index);
+						// Set original-index for ALL product types as HTML attribute (persists better)
+						// Only set if not already set to avoid overwriting original order after page load
+						$container.find('.auction-product-item, li.product, .auction-product-card').each(function(index) {
+							var $item = $(this);
+							// Only set if not already set (preserve original order from server or early capture)
+							if (!$item.attr('data-original-index')) {
+								$item.attr('data-original-index', index);
+								$item.data('original-index', index);
+							}
 						});
 						
 						updateResultsCount();
