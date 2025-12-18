@@ -4420,12 +4420,23 @@ class Auction_Frontend {
 			update_post_meta( $product_id, '_auction_buy_now_order_status', $order_status );
 			
 			// Set product as OUT OF STOCK when purchased via Buy Now
-			// Reload product to ensure we have the latest data
+			// This ensures the product shows as "Out of Stock" in wp-admin and on frontend
+			
+			// Set stock status meta directly (works even if stock management is disabled)
+			update_post_meta( $product_id, '_stock_status', 'outofstock' );
+			
+			// Also set stock quantity to 0 if stock management is enabled
+			$manage_stock = get_post_meta( $product_id, '_manage_stock', true );
+			if ( 'yes' === $manage_stock ) {
+				update_post_meta( $product_id, '_stock', 0 );
+			}
+			
+			// Reload product and use WooCommerce methods to ensure proper saving
 			wp_cache_delete( $product_id, 'posts' );
 			wp_cache_delete( $product_id, 'post_meta' );
 			$product = wc_get_product( $product_id );
 			if ( $product ) {
-				// Set stock status to out of stock
+				// Set stock status using WooCommerce method
 				$product->set_stock_status( 'outofstock' );
 				
 				// If stock management is enabled, set quantity to 0
@@ -4434,6 +4445,7 @@ class Auction_Frontend {
 				}
 				
 				// Save the product to persist stock status changes
+				// This ensures the change is visible in wp-admin
 				$product->save();
 			}
 			
