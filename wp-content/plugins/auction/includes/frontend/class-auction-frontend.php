@@ -145,6 +145,15 @@ class Auction_Frontend {
 		// Hide main price on auction page
 		add_filter( 'woocommerce_get_price_html', array( $this, 'hide_price_on_auction_page' ), 10, 2 );
 
+		// Close auction when Buy Now purchase is made (trigger on order creation and status changes)
+		add_action( 'woocommerce_checkout_order_processed', array( $this, 'maybe_close_auction_on_buy_now' ), 20, 1 );
+		add_action( 'woocommerce_new_order', array( $this, 'maybe_close_auction_on_buy_now' ), 20, 1 );
+		add_action( 'woocommerce_order_status_changed', array( $this, 'handle_order_status_change_for_auction' ), 20, 4 );
+		add_action( 'woocommerce_order_status_processing', array( $this, 'maybe_close_auction_on_buy_now' ), 20, 1 );
+		add_action( 'woocommerce_order_status_completed', array( $this, 'maybe_close_auction_on_buy_now' ), 20, 1 );
+		add_action( 'woocommerce_payment_complete', array( $this, 'maybe_close_auction_on_buy_now' ), 20, 1 );
+		add_action( 'woocommerce_update_order', array( $this, 'maybe_close_auction_on_buy_now' ), 20, 1 );
+
 		add_action( 'wp_ajax_auction_place_bid', array( $this, 'ajax_place_bid' ) );
 		add_action( 'wp_ajax_nopriv_auction_place_bid', array( $this, 'ajax_place_bid' ) );
 
@@ -489,11 +498,14 @@ class Auction_Frontend {
 					'thousand_separator' => wc_get_price_thousand_separator(),
 				),
 				'i18n'           => array(
-					'bid_submitted'   => __( 'Bid submitted successfully!', 'auction' ),
-					'bid_outbid'      => __( 'Your bid was submitted but you have already been outbid.', 'auction' ),
-					'error_generic'   => __( 'An error occurred. Please try again.', 'auction' ),
-					'login_required'  => __( 'Please log in to use this feature.', 'auction' ),
-					'watch_added'     => __( 'Added to your watchlist.', 'auction' ),
+					'bid_submitted'       => __( 'Bid submitted successfully!', 'auction' ),
+					'bid_outbid'          => __( 'Your bid was submitted but you have already been outbid.', 'auction' ),
+					'error_generic'       => __( 'An error occurred. Please try again.', 'auction' ),
+					'login_required'      => __( 'Please log in to use this feature.', 'auction' ),
+					'watch_added'         => __( 'Added to your watchlist.', 'auction' ),
+					'auction_closed'      => __( 'Closed', 'auction' ),
+					'auction_ended'       => __( 'Auction ended', 'auction' ),
+					'auction_ended_message' => __( 'This auction has ended. Thank you for your interest.', 'auction' ),
 					'watch_removed'   => __( 'Removed from your watchlist.', 'auction' ),
 					'auto_bid_notice' => __( 'You set a maximum automatic bid of %s.', 'auction' ),
 				),
@@ -569,8 +581,49 @@ class Auction_Frontend {
 		}
 
 		$config = Auction_Product_Helper::get_config( $product );
+		$closed_by_buy_now = $product->get_meta( '_auction_status_flag', true );
+		
+		// Check if there's a Processing/Completed order for this product with Buy Now enabled
+		// This handles cases where the order was created before the hook was registered
+		// Only check if Buy Now is enabled and auction isn't already closed
+		if ( ! empty( $config['buy_now_enabled'] ) && 'yes' === $config['buy_now_enabled'] && 'closed_by_buy_now' !== $closed_by_buy_now ) {
+			// Get recent orders in processing/completed status
+			$orders = wc_get_orders( array(
+				'limit'      => 20,
+				'status'     => array( 'processing', 'completed', 'on-hold' ),
+				'date_after' => date( 'Y-m-d', strtotime( '-7 days' ) ), // Only check orders from last 7 days
+				'return'     => 'ids',
+			) );
+			
+			foreach ( $orders as $order_id ) {
+				$order = wc_get_order( $order_id );
+				if ( ! $order ) {
+					continue;
+				}
+				
+				foreach ( $order->get_items() as $item ) {
+					if ( $item->get_product_id() === $product->get_id() ) {
+						// Found an order with this product, close the auction
+						$this->maybe_close_auction_on_buy_now( $order_id );
+						// Reload product to get updated config
+						wp_cache_delete( $product->get_id(), 'posts' );
+						wp_cache_delete( $product->get_id(), 'post_meta' );
+						$product = wc_get_product( $product->get_id() );
+						$config = Auction_Product_Helper::get_config( $product );
+						$closed_by_buy_now = $product->get_meta( '_auction_status_flag', true );
+						break 2;
+					}
+				}
+			}
+		}
 		$state  = Auction_Product_Helper::get_runtime_state( $product );
 		$status = Auction_Product_Helper::get_auction_status( $config );
+		
+		// Check if auction was closed by Buy Now purchase - override status to 'ended'
+		$closed_by_buy_now = $product->get_meta( '_auction_status_flag', true );
+		if ( 'closed_by_buy_now' === $closed_by_buy_now ) {
+			$status = 'ended';
+		}
 
 		$current_bid = $state['winning_bid_id'] ? $state['current_bid'] : Auction_Product_Helper::get_start_price( $config );
 		$current_bid = $current_bid > 0 ? $current_bid : 0;
@@ -1275,6 +1328,12 @@ class Auction_Frontend {
 
 		if ( ! Auction_Product_Helper::is_auction_product( $product ) ) {
 			return $purchasable;
+		}
+
+		// Check if auction was closed by Buy Now purchase
+		$closed_by_buy_now = $product->get_meta( '_auction_status_flag', true );
+		if ( 'closed_by_buy_now' === $closed_by_buy_now ) {
+			return false; // Auction closed by Buy Now, no longer purchasable
 		}
 
 		$config = Auction_Product_Helper::get_config( $product );
@@ -4222,6 +4281,146 @@ class Auction_Frontend {
 		}
 
 		return $html;
+	}
+
+	/**
+	 * Close auction when Buy Now purchase is made.
+	 *
+	 * This function is triggered when an order is created or status changes to processing/completed
+	 * and checks if any auction products with Buy Now enabled were purchased.
+	 * If so, it automatically closes those auctions immediately, preventing further bids/purchases.
+	 *
+	 * @param int $order_id Order ID.
+	 * @return void
+	 */
+	/**
+	 * Handle order status change for auction closure.
+	 *
+	 * @param int    $order_id   Order ID.
+	 * @param string $old_status Old status.
+	 * @param string $new_status New status.
+	 * @param object $order      Order object.
+	 * @return void
+	 */
+	public function handle_order_status_change_for_auction( int $order_id, string $old_status, string $new_status, $order ): void {
+		// Close auction when status changes to processing, completed, or on-hold
+		if ( in_array( $new_status, array( 'processing', 'completed', 'on-hold' ), true ) ) {
+			$this->maybe_close_auction_on_buy_now( $order_id );
+		}
+	}
+
+	/**
+	 * Close auction when Buy Now purchase is made.
+	 *
+	 * @param int $order_id Order ID.
+	 * @return void
+	 */
+	public function maybe_close_auction_on_buy_now( int $order_id ): void {
+		$order = wc_get_order( $order_id );
+
+		if ( ! $order ) {
+			return;
+		}
+
+		// Get order status
+		$order_status = $order->get_status();
+		
+		// Skip if order is cancelled or failed - these don't represent successful purchases
+		$skip_statuses = array( 'cancelled', 'failed', 'refunded', 'trash' );
+		if ( in_array( $order_status, $skip_statuses, true ) ) {
+			return;
+		}
+
+		// Process for any other status (pending, processing, completed, on-hold)
+		// Once an order exists for Buy Now, the auction should close immediately
+		// The user specifically wants it to close when order is in Processing status
+
+		// Get all items in the order
+		$items = $order->get_items();
+
+		if ( empty( $items ) ) {
+			return; // No items in order
+		}
+
+		foreach ( $items as $item ) {
+			$product_id = $item->get_product_id();
+			if ( ! $product_id ) {
+				continue;
+			}
+
+			// Get fresh product instance to avoid cache issues
+			wp_cache_delete( $product_id, 'posts' );
+			wp_cache_delete( $product_id, 'post_meta' );
+			$product = wc_get_product( $product_id );
+
+			if ( ! $product ) {
+				continue;
+			}
+
+			// Check if this is an auction product
+			if ( ! Auction_Product_Helper::is_auction_product( $product ) ) {
+				continue;
+			}
+
+			// Check if Buy Now is enabled BEFORE getting config (faster check)
+			$buy_now_enabled = $product->get_meta( '_auction_buy_now_enabled', true );
+			if ( empty( $buy_now_enabled ) || 'yes' !== $buy_now_enabled ) {
+				continue;
+			}
+
+			// Get fresh config
+			$config = Auction_Product_Helper::get_config( $product );
+
+			// Check if auction was already closed by Buy Now (avoid duplicate processing)
+			$already_closed = $product->get_meta( '_auction_status_flag', true );
+			if ( 'closed_by_buy_now' === $already_closed ) {
+				continue; // Already closed by Buy Now, skip
+			}
+
+			// Check if auction is still active (not already ended by time)
+			$auction_status = Auction_Product_Helper::get_auction_status( $config );
+			if ( 'ended' === $auction_status ) {
+				continue; // Already ended by time, skip
+			}
+
+			// Close the auction by setting end time to a time in the past
+			// This immediately makes the auction "ended" status, preventing further bids/purchases
+			// We set it to 2 seconds ago to ensure it's definitely in the past when checked
+			// Use WordPress timezone
+			$wp_timezone = wp_timezone();
+			$now = new DateTime( 'now', $wp_timezone );
+			$now->modify( '-2 seconds' );
+			$current_time = $now->format( 'Y-m-d H:i:s' );
+			
+			// Set end time to past time (in same format as stored)
+			update_post_meta( $product_id, '_auction_end_time', $current_time );
+			
+			// Mark as processed with special flag for Buy Now closure
+			update_post_meta( $product_id, '_auction_processed', 'yes' );
+			update_post_meta( $product_id, '_auction_status_flag', 'closed_by_buy_now' );
+			update_post_meta( $product_id, '_auction_buy_now_order_id', $order_id );
+			update_post_meta( $product_id, '_auction_buy_now_closed_at', $current_time );
+			update_post_meta( $product_id, '_auction_buy_now_order_status', $order_status );
+			
+			// Clear caches to ensure changes are immediately visible
+			clean_post_cache( $product_id );
+			wp_cache_delete( $product_id, 'posts' );
+			wp_cache_delete( $product_id, 'post_meta' );
+			wc_delete_product_transients( $product_id );
+
+			/**
+			 * Action hook fired when an auction is closed by Buy Now purchase.
+			 * This happens when an order is created or enters processing/completed status.
+			 * Once closed, no further bids or purchases are allowed (same as when auction time expires).
+			 *
+			 * @param int         $product_id   Product ID.
+			 * @param int         $order_id     Order ID.
+			 * @param WC_Product  $product      Product object.
+			 * @param WC_Order    $order        Order object.
+			 * @param string      $order_status Order status when auction was closed.
+			 */
+			do_action( 'auction_closed_by_buy_now', $product_id, $order_id, $product, $order, $order_status );
+		}
 	}
 
 }

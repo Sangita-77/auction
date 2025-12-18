@@ -297,14 +297,77 @@
 			var now = Math.floor( Date.now() / 1000 );
 			var diff = target - now;
 
-			if ( start && now < start ) {
+			// Check if auction was closed by Buy Now or already ended
+			var $panel = $el.closest( '.auction-single-panel' );
+			var isClosedByBuyNow = false;
+			var isEnded = false;
+			
+			if ( $panel.length ) {
+				// Check data attribute - use attr() for direct HTML attribute access
+				var closedByBuyNowAttr = $panel.attr( 'data-closed-by-buy-now' );
+				isClosedByBuyNow = closedByBuyNowAttr === '1';
+				
+				// Also check auction status
+				var $statusEl = $panel.find( '.auction-status' );
+				if ( $statusEl.length ) {
+					var auctionStatus = $statusEl.attr( 'data-auction-status' ) || $statusEl.data( 'auction-status' );
+					isEnded = auctionStatus === 'ended';
+				}
+			}
+			
+			// If closed by Buy Now or already ended, OR time has passed, force diff to be <= 0
+			if ( isClosedByBuyNow || isEnded || diff <= 0 ) {
+				diff = -1;
+			}
+
+			if ( start && now < start && diff > 0 ) {
 				var total = target - start;
 				var elapsed = start - now;
 				diff = total - elapsed;
 			}
 
 			if ( diff <= 0 ) {
-				$el.text( '--:--:--' );
+				$el.text( config.i18n.auction_closed || 'Closed' );
+
+				// Update auction status on single product page
+				// Re-find panel if not already found
+				if ( ! $panel || ! $panel.length ) {
+					$panel = $el.closest( '.auction-single-panel' );
+				}
+				if ( $panel.length ) {
+					var $statusEl = $panel.find( '.auction-status' );
+					var currentStatus = $statusEl.length ? ( $statusEl.data( 'auction-status' ) || $statusEl.attr( 'data-auction-status' ) ) : '';
+					if ( $statusEl.length && currentStatus !== 'ended' ) {
+						$statusEl
+							.data( 'auction-status', 'ended' )
+							.text( config.i18n.auction_ended || 'Auction ended' );
+
+						// Hide bid form and show ended message
+						var $bidForm = $panel.find( '.auction-bid-form' );
+						var $openBidButton = $panel.find( '.auction-open-bid-panel' );
+						var $bidPanel = $panel.find( '.auction-bid-panel' );
+						
+						$bidForm.hide();
+						$openBidButton.hide();
+						$bidPanel.hide();
+
+						// Disable Buy Now button (add to cart)
+						var $addToCartForm = $( 'form.cart' );
+						var $addToCartButton = $addToCartForm.find( 'button[type="submit"], input[type="submit"]' );
+						$addToCartButton.prop( 'disabled', true ).addClass( 'disabled' );
+						
+						// Also disable any add to cart buttons in the page
+						$( '.single_add_to_cart_button, .add_to_cart_button' ).prop( 'disabled', true ).addClass( 'disabled' );
+
+						// Show ended message if it exists, otherwise create it
+						var $endedMessage = $panel.find( '.auction-ended-message' );
+						if ( ! $endedMessage.length ) {
+							$endedMessage = $( '<p class="auction-ended-message">' + ( config.i18n.auction_ended_message || 'This auction has ended. Thank you for your interest.' ) + '</p>' );
+							$panel.find( '.auction-bid-panel' ).after( $endedMessage );
+						}
+						$endedMessage.show();
+					}
+				}
 
 				// Check if we're on the auction page or shop page (where we want to show closed auctions if setting allows)
 				// Note: If "Hide ended auctions" setting is enabled, PHP query filters them out, so they won't be in DOM
@@ -365,6 +428,15 @@
 			$el.text( text );
 		}
 
+		// Run immediately on page load to check if auction is already closed
+		// Use a small delay to ensure DOM is fully ready
+		setTimeout( function () {
+			$countdowns.each( function () {
+				renderCountdown( $( this ) );
+			} );
+		}, 100 );
+
+		// Then update every second
 		setInterval( function () {
 			$countdowns.each( function () {
 				renderCountdown( $( this ) );

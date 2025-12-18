@@ -24,6 +24,20 @@ $start_timestamp = $config['start_timestamp'] ?: 0;
 $end_timestamp   = $config['end_timestamp'] ?: 0;
 $automatic_on    = $config['automatic_bidding'];
 
+// Check if auction was closed by Buy Now or if end time has passed
+$closed_by_buy_now = $product->get_meta( '_auction_status_flag', true );
+$is_closed_by_buy_now = ( 'closed_by_buy_now' === $closed_by_buy_now );
+
+// If closed by Buy Now, override status
+if ( $is_closed_by_buy_now && 'ended' !== $auction_status ) {
+	$auction_status = 'ended';
+}
+
+// Also check if end time is in the past (even if flag isn't set, time has passed = ended)
+if ( 'ended' !== $auction_status && $end_timestamp && $end_timestamp < current_time( 'timestamp' ) ) {
+	$auction_status = 'ended';
+}
+
 $highest_bidder_name = '';
 
 if ( $leading_bid ) {
@@ -44,13 +58,13 @@ if ( $leading_bid ) {
 }
 
 ?>
-
 <section
 	class="auction-single-panel"
 	data-auction-product="<?php echo esc_attr( $product->get_id() ); ?>"
 	data-requires-login="<?php echo esc_attr( $requires_login ? '1' : '0' ); ?>"
 	data-enable-register-modal="<?php echo esc_attr( $register_modal ? '1' : '0' ); ?>"
 	data-register-url="<?php echo esc_url( $register_page_url ); ?>"
+	data-closed-by-buy-now="<?php echo esc_attr( $is_closed_by_buy_now ? '1' : '0' ); ?>"
 >
 	<header class="auction-header">
 		<h2><?php esc_html_e( 'Auction Details', 'auction' ); ?></h2>

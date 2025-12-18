@@ -1083,6 +1083,20 @@ class Auction_Admin_Menu {
 							<textarea name="<?php echo esc_attr( $name ); ?>" id="<?php echo esc_attr( $id ); ?>" rows="4"><?php echo esc_textarea( $value ); ?></textarea>
 							<?php
 							break;
+						case 'editor':
+							wp_editor(
+								$value,
+								$id,
+								array(
+									'textarea_name' => $name,
+									'textarea_rows' => 10,
+									'media_buttons' => true,
+									'teeny'         => false,
+									'tinymce'       => true,
+									'quicktags'     => true,
+								)
+							);
+							break;
 						case 'color':
 							?>
 							<input
@@ -1230,6 +1244,10 @@ class Auction_Admin_Menu {
 
 			case 'textarea':
 				return is_string( $value ) ? sanitize_textarea_field( $value ) : $default;
+
+			case 'editor':
+				// Allow HTML content but sanitize it
+				return is_string( $value ) ? wp_kses_post( $value ) : $default;
 
 			case 'color':
 				$value = is_string( $value ) ? sanitize_hex_color( $value ) : '';
@@ -1445,15 +1463,15 @@ class Auction_Admin_Menu {
 				'description' => __( 'Content shown in the Dates & Times and Terms & Conditions tabs on the main auctions page.', 'auction' ),
 				'fields'      => array(
 					'dates_times_content' => array(
-						'type'        => 'textarea',
+						'type'        => 'editor',
 						'label'       => __( 'Dates & Times content', 'auction' ),
-						'description' => __( 'Text or HTML shown in the “Dates & Times” tab on the auction listing page.', 'auction' ),
+						'description' => __( 'Text or HTML shown in the "Dates & Times" tab on the auction listing page.', 'auction' ),
 						'default'     => '',
 					),
 					'terms_content'       => array(
-						'type'        => 'textarea',
+						'type'        => 'editor',
 						'label'       => __( 'Terms & Conditions content', 'auction' ),
-						'description' => __( 'Text or HTML shown in the “Terms & Conditions” tab on the auction listing page.', 'auction' ),
+						'description' => __( 'Text or HTML shown in the "Terms & Conditions" tab on the auction listing page.', 'auction' ),
 						'default'     => '',
 					),
 				),
