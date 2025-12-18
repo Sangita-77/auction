@@ -848,6 +848,14 @@ class Auction_Frontend {
 		$status          = Auction_Product_Helper::get_auction_status( $config );
 		$start_timestamp = $config['start_timestamp'] ?: 0;
 		$end_timestamp   = $config['end_timestamp'] ?: 0;
+		
+		// Check if product is out of stock
+		$is_in_stock = $product->is_in_stock();
+		
+		// If product is out of stock, treat as closed/ended
+		if ( ! $is_in_stock && 'ended' !== $status ) {
+			$status = 'ended';
+		}
 	
 		// Get bid information
 		$state = Auction_Product_Helper::get_runtime_state( $product );
@@ -889,7 +897,7 @@ class Auction_Frontend {
 		// Get product URL
 		$product_url = get_permalink( $product->get_id() );
 	
-		echo '<div class="auction-loop-meta" data-auction-product="' . esc_attr( $product->get_id() ) . '" data-auction-status="' . esc_attr( $status ) . '" ' . ($end_timestamp ? 'data-auction-end="' . esc_attr( $end_timestamp) . '"' : '') . '>';
+		echo '<div class="auction-loop-meta" data-auction-product="' . esc_attr( $product->get_id() ) . '" data-auction-status="' . esc_attr( $status ) . '" data-is-in-stock="' . esc_attr( $is_in_stock ? '1' : '0' ) . '" ' . ($end_timestamp ? 'data-auction-end="' . esc_attr( $end_timestamp) . '"' : '') . '>';
 	
 		// Badge
 		if ( Auction_Settings::is_enabled( 'custom_badge_enable' ) ) {
@@ -968,23 +976,23 @@ class Auction_Frontend {
 		// Time Remaining / Status
 		echo '<div class="auction-info-row">';
 		echo '<strong>' . esc_html__( 'Time Remaining:', 'auction' ) . '</strong> ';
-		$status_label = '';
-		$status_class = '';
-		switch ( $status ) {
-			case 'active':
-				$status_label = __( 'Active', 'auction' );
-				$status_class = 'auction-status-active';
-				break;
-			case 'ended':
-				$status_label = __( 'Closed', 'auction' );
-				$status_class = 'auction-status-closed';
-				break;
-			case 'scheduled':
-				$status_label = __( 'Scheduled', 'auction' );
-				$status_class = 'auction-status-scheduled';
-				break;
+		
+		// If product is out of stock, show "Closed"
+		if ( ! $is_in_stock ) {
+			echo '<span class="auction-time-remaining auction-status-closed">' . esc_html__( 'Closed', 'auction' ) . '</span>';
+		} elseif ( 'ended' === $status ) {
+			// Show "Closed" for ended auctions
+			echo '<span class="auction-time-remaining auction-status-closed">' . esc_html__( 'Closed', 'auction' ) . '</span>';
+		} elseif ( 'active' === $status ) {
+			// Show "Active" for active auctions (instead of countdown)
+			echo '<span class="auction-time-remaining auction-status-active">' . esc_html__( 'Active', 'auction' ) . '</span>';
+		} elseif ( 'scheduled' === $status ) {
+			// Show "Scheduled" for scheduled auctions
+			echo '<span class="auction-time-remaining auction-status-scheduled">' . esc_html__( 'Scheduled', 'auction' ) . '</span>';
+		} else {
+			// Fallback: show "Active" if status is unknown but auction exists
+			echo '<span class="auction-time-remaining auction-status-active">' . esc_html__( 'Active', 'auction' ) . '</span>';
 		}
-		echo '<span class="auction-time-remaining ' . esc_attr( $status_class ) . '">' . esc_html( $status_label ) . '</span>';
 		echo '</div>';
 		
 		// Lot Details button
@@ -1534,6 +1542,15 @@ class Auction_Frontend {
 			wp_send_json_error(
 				array(
 					'message' => __( 'Invalid auction product.', 'auction' ),
+				)
+			);
+		}
+
+		// Check if product is out of stock - prevent bidding on out of stock products
+		if ( ! $product->is_in_stock() ) {
+			wp_send_json_error(
+				array(
+					'message' => __( 'This product is out of stock. Bidding is no longer available.', 'auction' ),
 				)
 			);
 		}
@@ -4401,6 +4418,24 @@ class Auction_Frontend {
 			update_post_meta( $product_id, '_auction_buy_now_order_id', $order_id );
 			update_post_meta( $product_id, '_auction_buy_now_closed_at', $current_time );
 			update_post_meta( $product_id, '_auction_buy_now_order_status', $order_status );
+			
+			// Set product as OUT OF STOCK when purchased via Buy Now
+			// Reload product to ensure we have the latest data
+			wp_cache_delete( $product_id, 'posts' );
+			wp_cache_delete( $product_id, 'post_meta' );
+			$product = wc_get_product( $product_id );
+			if ( $product ) {
+				// Set stock status to out of stock
+				$product->set_stock_status( 'outofstock' );
+				
+				// If stock management is enabled, set quantity to 0
+				if ( $product->get_manage_stock() ) {
+					$product->set_stock_quantity( 0 );
+				}
+				
+				// Save the product to persist stock status changes
+				$product->save();
+			}
 			
 			// Clear caches to ensure changes are immediately visible
 			clean_post_cache( $product_id );

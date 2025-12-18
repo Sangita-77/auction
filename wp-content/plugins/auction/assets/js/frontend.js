@@ -299,8 +299,10 @@
 
 			// Check if auction was closed by Buy Now or already ended
 			var $panel = $el.closest( '.auction-single-panel' );
+			var $loopMeta = $el.closest( '.auction-loop-meta' );
 			var isClosedByBuyNow = false;
 			var isEnded = false;
+			var isOutOfStock = false;
 			
 			if ( $panel.length ) {
 				// Check data attribute - use attr() for direct HTML attribute access
@@ -315,8 +317,20 @@
 				}
 			}
 			
-			// If closed by Buy Now or already ended, OR time has passed, force diff to be <= 0
-			if ( isClosedByBuyNow || isEnded || diff <= 0 ) {
+			// Check loop meta for stock status (on listing pages)
+			if ( $loopMeta.length ) {
+				var isInStockAttr = $loopMeta.attr( 'data-is-in-stock' );
+				isOutOfStock = isInStockAttr === '0';
+				
+				// Also check auction status from loop meta
+				var auctionStatus = $loopMeta.attr( 'data-auction-status' );
+				if ( auctionStatus === 'ended' ) {
+					isEnded = true;
+				}
+			}
+			
+			// If closed by Buy Now, already ended, out of stock, OR time has passed, force diff to be <= 0
+			if ( isClosedByBuyNow || isEnded || isOutOfStock || diff <= 0 ) {
 				diff = -1;
 			}
 

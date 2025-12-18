@@ -28,6 +28,9 @@ $automatic_on    = $config['automatic_bidding'];
 $closed_by_buy_now = $product->get_meta( '_auction_status_flag', true );
 $is_closed_by_buy_now = ( 'closed_by_buy_now' === $closed_by_buy_now );
 
+// Check if product is out of stock
+$is_in_stock = $product->is_in_stock();
+
 // If closed by Buy Now, override status
 if ( $is_closed_by_buy_now && 'ended' !== $auction_status ) {
 	$auction_status = 'ended';
@@ -35,6 +38,11 @@ if ( $is_closed_by_buy_now && 'ended' !== $auction_status ) {
 
 // Also check if end time is in the past (even if flag isn't set, time has passed = ended)
 if ( 'ended' !== $auction_status && $end_timestamp && $end_timestamp < current_time( 'timestamp' ) ) {
+	$auction_status = 'ended';
+}
+
+// If product is out of stock, treat as closed/ended
+if ( ! $is_in_stock && 'ended' !== $auction_status ) {
 	$auction_status = 'ended';
 }
 
@@ -96,13 +104,17 @@ if ( $leading_bid ) {
 		<?php if ( $end_timestamp ) : ?>
 			<p>
 				<strong><?php esc_html_e( 'End time:', 'auction' ); ?></strong>
-				<span
-					class="auction-countdown"
-					data-countdown-target="<?php echo esc_attr( $end_timestamp ); ?>"
-					data-countdown-start="<?php echo esc_attr( $start_timestamp ?? 0 ); ?>"
-				>
-					<?php echo esc_html( date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $end_timestamp ) ); ?>
-				</span>
+				<?php if ( ! $is_in_stock ) : ?>
+					<span class="auction-countdown"><?php esc_html_e( 'Closed', 'auction' ); ?></span>
+				<?php else : ?>
+					<span
+						class="auction-countdown"
+						data-countdown-target="<?php echo esc_attr( $end_timestamp ); ?>"
+						data-countdown-start="<?php echo esc_attr( $start_timestamp ?? 0 ); ?>"
+					>
+						<?php echo esc_html( date_i18n( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $end_timestamp ) ); ?>
+					</span>
+				<?php endif; ?>
 			</p>
 		<?php endif; ?>
 
@@ -139,10 +151,15 @@ if ( $leading_bid ) {
 					?>
 				</span>
 			</p>
-		<?php endif; ?>
-	</div><!-- End auction-meta -->
+	<?php endif; ?>
+</div><!-- End auction-meta -->
 
-<?php if ( 'ended' !== $auction_status ) : ?>
+<?php 
+// Check if product is in stock
+$is_in_stock = $product->is_in_stock();
+
+// Show Bid Now button only if auction is not ended AND product is in stock
+if ( 'ended' !== $auction_status && $is_in_stock ) : ?>
 		<button
 			type="button"
 			class="button auction-open-bid-panel"
@@ -226,9 +243,13 @@ if ( $leading_bid ) {
 				<?php echo $is_watchlisted ? esc_html__( 'Remove from watchlist', 'auction' ) : esc_html__( 'Add to watchlist', 'auction' ); ?>
 			</button>
 		<?php endif; ?>
-	<?php else : ?>
+	<?php elseif ( 'ended' === $auction_status ) : ?>
 		<p class="auction-ended-message">
 			<?php esc_html_e( 'This auction has ended. Thank you for your interest.', 'auction' ); ?>
+		</p>
+	<?php elseif ( ! $is_in_stock ) : ?>
+		<p class="auction-ended-message">
+			<?php esc_html_e( 'This product is out of stock. Bidding is no longer available.', 'auction' ); ?>
 		</p>
 	<?php endif; ?>
 
