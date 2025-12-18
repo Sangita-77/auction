@@ -126,7 +126,7 @@ if ( $leading_bid ) {
 				</span>
 			</p>
 		<?php endif; ?>
-	</div>
+	</div><!-- End auction-meta -->
 
 <?php if ( 'ended' !== $auction_status ) : ?>
 		<button

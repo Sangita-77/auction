@@ -2129,7 +2129,7 @@ class Auction_Frontend {
 						}
 					});
 				}
-				
+
 				// Layout toggle - support both class and ID versions
 				if (productsContainer) {
 					// Handle ID version (#auction-layout-toggle - single button)
@@ -2151,11 +2151,9 @@ class Auction_Frontend {
 							productsContainer.classList.remove('is-grid', 'is-list', 'grid-view', 'list-view');
 							if (newLayout === 'list') {
 								productsContainer.classList.add('is-list');
-								// Move product titles into auction-loop-info
 								moveTitleToAuctionInfoVanilla(productsContainer, true);
 							} else {
 								productsContainer.classList.add('is-grid');
-								// Restore product titles to original position
 								moveTitleToAuctionInfoVanilla(productsContainer, false);
 							}
 							
@@ -2194,12 +2192,10 @@ class Auction_Frontend {
 							if (layout === 'list') {
 								productsContainer.classList.remove('is-grid');
 								productsContainer.classList.add('is-list');
-								// Move product titles into auction-loop-info
 								moveTitleToAuctionInfoVanilla(productsContainer, true);
 							} else {
 								productsContainer.classList.remove('is-list');
 								productsContainer.classList.add('is-grid');
-								// Restore product titles to original position
 								moveTitleToAuctionInfoVanilla(productsContainer, false);
 							}
 						});
@@ -2959,17 +2955,19 @@ class Auction_Frontend {
 		?>
 		<div class="auction-listing-page">
 			<!-- Header with date and counts -->
-			<div class="auction-header-banner" style="background: #ff6600; color: white; padding: 20px; text-align: center; margin-bottom: 20px;">
+			<div class="auction-header-banner">
 				<div style="display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; gap: 20px;">
-					<div>
+					<div class="bid_block">
 						<strong><?php echo esc_html( $today_formatted ); ?></strong><br>
 						<span>Live Auctions Today: <?php echo esc_html( $todays_count ); ?></span>
 					</div>
 					<?php if ( $next_date_formatted ) : ?>
-					<div>
+					<div class="bid_block">
 						<strong>Next Auction: <?php echo esc_html( $next_date_formatted ); ?></strong><br>
 						<span>Live Auctions: <?php echo esc_html( $next_count ); ?></span>
 					</div>
+					<?php else: ?>
+						<div class="bid_block"><strong>No upcoming auctions</strong></div>
 					<?php endif; ?>
 				</div>
 			</div>
@@ -2993,27 +2991,31 @@ class Auction_Frontend {
 			<!-- Tab Content: Bid Gallery -->
 			<div class="auction-tab-content active" id="bid-gallery">
 				<!-- Search and Filters -->
-				<div class="auction-filters" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
-					<input type="text" id="auction-search" placeholder="<?php esc_attr_e( 'Search by keyword...', 'auction' ); ?>" style="flex: 1; min-width: 200px; padding: 8px; border: 1px solid #ddd;">
-					<button type="button" id="auction-search-btn" style="padding: 8px 15px; background: #000; color: white; border: none; cursor: pointer;">🔍</button>
-					<select id="auction-category-filter" style="padding: 8px; border: 1px solid #ddd;">
-						<option value=""><?php esc_html_e( 'All Categories', 'auction' ); ?></option>
-						<?php
-						if ( ! empty( $categories_map ) ) {
-							foreach ( $categories_map as $cat_data ) {
-								// Categories are already filtered, but double-check for safety
-								if ( isset( $cat_data['term'] ) && isset( $cat_data['count'] ) && $cat_data['count'] > 0 ) {
-									$term = $cat_data['term'];
-									echo '<option value="' . esc_attr( $term->slug ) . '">' . esc_html( $term->name ) . ' (' . esc_html( $cat_data['count'] ) . ')</option>';
+				<div class="auction-filters">
+					<div class="filters_search">
+						<input type="text" id="auction-search" placeholder="<?php esc_attr_e( 'Search by keyword...', 'auction' ); ?>">
+						<button type="button" id="auction-search-btn">🔍</button>
+					</div>
+					<div class="filters_reset">
+						<select id="auction-category-filter">
+							<option value=""><?php esc_html_e( 'All Categories', 'auction' ); ?></option>
+							<?php
+							if ( ! empty( $categories_map ) ) {
+								foreach ( $categories_map as $cat_data ) {
+									// Categories are already filtered, but double-check for safety
+									if ( isset( $cat_data['term'] ) && isset( $cat_data['count'] ) && $cat_data['count'] > 0 ) {
+										$term = $cat_data['term'];
+										echo '<option value="' . esc_attr( $term->slug ) . '">' . esc_html( $term->name ) . ' (' . esc_html( $cat_data['count'] ) . ')</option>';
+									}
 								}
 							}
-						}
-						?>
-					</select>
-					<button type="button" id="auction-reset" style="padding: 8px 15px; background: #666; color: white; border: none; cursor: pointer;">
-						<?php esc_html_e( 'Reset', 'auction' ); ?>
-					</button>
-					<button type="button" id="auction-layout-toggle" data-layout="grid" style="padding: 8px 15px; background: #666; color: white; border: none; cursor: pointer;">☰</button>
+							?>
+						</select>
+						<button type="button" id="auction-reset">
+							<?php esc_html_e( 'Reset', 'auction' ); ?>
+						</button>
+						<button type="button" id="auction-layout-toggle" data-layout="grid" class="grid-view"></button>
+					</div>
 				</div>
 
 				<!-- Results Summary -->
@@ -3022,73 +3024,73 @@ class Auction_Frontend {
 				</div>
 
 				<!-- Sorting -->
-				<div class="auction-sorting" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
-					<div class="auction-sort-wrapper" style="position: relative;">
-						<button type="button" class="auction-sort-btn" data-sort="bid-count" style="padding: 8px 15px; background: #333; color: white; border: none; cursor: pointer;">
-							<?php esc_html_e( 'Bid Count', 'auction' ); ?> ↕
+				<div class="auction-sorting">
+					<div class="auction-sort-wrapper">
+						<button type="button" class="auction-sort-btn" data-sort="bid-count">
+							<?php esc_html_e( 'Bid Count', 'auction' ); ?> <span class="main_arr">&nbsp;</span>
 						</button>
-						<div class="auction-sort-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000; min-width: 150px; margin-top: 2px;">
-							<button type="button" class="auction-sort-option" data-sort="bid-count" data-direction="asc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; border-bottom: 1px solid #eee; color: #000;">
-								<?php esc_html_e( 'Ascending', 'auction' ); ?> ↑
+						<div class="auction-sort-dropdown">
+							<button type="button" class="auction-sort-option" data-sort="bid-count" data-direction="asc">
+								<?php esc_html_e( 'Ascending', 'auction' ); ?> <span>↑</span>
 							</button>
-							<button type="button" class="auction-sort-option" data-sort="bid-count" data-direction="desc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; color: #000;">
-								<?php esc_html_e( 'Descending', 'auction' ); ?> ↓
+							<button type="button" class="auction-sort-option" data-sort="bid-count" data-direction="desc">
+								<?php esc_html_e( 'Descending', 'auction' ); ?> <span>↓</span>
 							</button>
 						</div>
 					</div>
-					<div class="auction-sort-wrapper" style="position: relative;">
-						<button type="button" class="auction-sort-btn" data-sort="end-date" style="padding: 8px 15px; background: #333; color: white; border: none; cursor: pointer;">
-							<?php esc_html_e( 'End Date', 'auction' ); ?> ↕
+					<div class="auction-sort-wrapper">
+						<button type="button" class="auction-sort-btn" data-sort="end-date">
+							<?php esc_html_e( 'End Date', 'auction' ); ?> <span class="main_arr">&nbsp;</span>
 						</button>
-						<div class="auction-sort-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000; min-width: 150px; margin-top: 2px;">
-							<button type="button" class="auction-sort-option" data-sort="end-date" data-direction="asc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; border-bottom: 1px solid #eee; color: #000;">
-								<?php esc_html_e( 'Ascending', 'auction' ); ?> ↑
+						<div class="auction-sort-dropdown">
+							<button type="button" class="auction-sort-option" data-sort="end-date" data-direction="asc">
+								<?php esc_html_e( 'Ascending', 'auction' ); ?> <span>↑</span>
 							</button>
-							<button type="button" class="auction-sort-option" data-sort="end-date" data-direction="desc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; color: #000;">
-								<?php esc_html_e( 'Descending', 'auction' ); ?> ↓
+							<button type="button" class="auction-sort-option" data-sort="end-date" data-direction="desc">
+								<?php esc_html_e( 'Descending', 'auction' ); ?> <span>↓</span>
 							</button>
 						</div>
 					</div>
-					<div class="auction-sort-wrapper" style="position: relative;">
-						<button type="button" class="auction-sort-btn" data-sort="title" style="padding: 8px 15px; background: #333; color: white; border: none; cursor: pointer;">
-							<?php esc_html_e( 'Title', 'auction' ); ?> ↕
+					<div class="auction-sort-wrapper">
+						<button type="button" class="auction-sort-btn" data-sort="title">
+							<?php esc_html_e( 'Title', 'auction' ); ?> <span class="main_arr">&nbsp;</span>
 						</button>
-						<div class="auction-sort-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000; min-width: 150px; margin-top: 2px;">
-							<button type="button" class="auction-sort-option" data-sort="title" data-direction="asc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; border-bottom: 1px solid #eee; color: #000;">
-								<?php esc_html_e( 'Ascending', 'auction' ); ?> ↑
+						<div class="auction-sort-dropdown">
+							<button type="button" class="auction-sort-option" data-sort="title" data-direction="asc">
+								<?php esc_html_e( 'Ascending', 'auction' ); ?> <span>↑</span>
 							</button>
-							<button type="button" class="auction-sort-option" data-sort="title" data-direction="desc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; color: #000;">
-								<?php esc_html_e( 'Descending', 'auction' ); ?> ↓
+							<button type="button" class="auction-sort-option" data-sort="title" data-direction="desc">
+								<?php esc_html_e( 'Descending', 'auction' ); ?> <span>↓</span>
 							</button>
 						</div>
 					</div>
-					<div class="auction-sort-wrapper" style="position: relative;">
-						<button type="button" class="auction-sort-btn" data-sort="lot-number" style="padding: 8px 15px; background: #333; color: white; border: none; cursor: pointer;">
-							<?php esc_html_e( 'Lot Number', 'auction' ); ?> ↕
+					<div class="auction-sort-wrapper">
+						<button type="button" class="auction-sort-btn" data-sort="lot-number">
+							<?php esc_html_e( 'Lot Number', 'auction' ); ?> <span class="main_arr">&nbsp;</span>
 						</button>
-						<div class="auction-sort-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000; min-width: 150px; margin-top: 2px;">
-							<button type="button" class="auction-sort-option" data-sort="lot-number" data-direction="asc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; border-bottom: 1px solid #eee; color: #000;">
-								<?php esc_html_e( 'Ascending', 'auction' ); ?> ↑
+						<div class="auction-sort-dropdown">
+							<button type="button" class="auction-sort-option" data-sort="lot-number" data-direction="asc">
+								<?php esc_html_e( 'Ascending', 'auction' ); ?> <span>↑</span>
 							</button>
-							<button type="button" class="auction-sort-option" data-sort="lot-number" data-direction="desc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; color: #000;">
-								<?php esc_html_e( 'Descending', 'auction' ); ?> ↓
+							<button type="button" class="auction-sort-option" data-sort="lot-number" data-direction="desc">
+								<?php esc_html_e( 'Descending', 'auction' ); ?> <span>↓</span>
 							</button>
 						</div>
 					</div>
-					<div class="auction-sort-wrapper" style="position: relative;">
-						<button type="button" class="auction-sort-btn" data-sort="current-bid" style="padding: 8px 15px; background: #333; color: white; border: none; cursor: pointer;">
-							<?php esc_html_e( 'Current Bid', 'auction' ); ?> ↕
+					<div class="auction-sort-wrapper">
+						<button type="button" class="auction-sort-btn" data-sort="current-bid">
+							<?php esc_html_e( 'Current Bid', 'auction' ); ?> <span class="main_arr">&nbsp;</span>
 						</button>
-						<div class="auction-sort-dropdown" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000; min-width: 150px; margin-top: 2px;">
-							<button type="button" class="auction-sort-option" data-sort="current-bid" data-direction="asc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; border-bottom: 1px solid #eee; color: #000;">
-								<?php esc_html_e( 'Ascending', 'auction' ); ?> ↑
+						<div class="auction-sort-dropdown">
+							<button type="button" class="auction-sort-option" data-sort="current-bid" data-direction="asc">
+								<?php esc_html_e( 'Ascending', 'auction' ); ?> <span>↑</span>
 							</button>
-							<button type="button" class="auction-sort-option" data-sort="current-bid" data-direction="desc" style="display: block; width: 100%; padding: 8px 15px; text-align: left; background: white; border: none; cursor: pointer; color: #000;">
-								<?php esc_html_e( 'Descending', 'auction' ); ?> ↓
+							<button type="button" class="auction-sort-option" data-sort="current-bid" data-direction="desc">
+								<?php esc_html_e( 'Descending', 'auction' ); ?> <span>↓</span>
 							</button>
 						</div>
 					</div>
-					<button type="button" id="auction-clear-sort" style="padding: 8px 15px; background: #999; color: white; border: none; cursor: pointer;">
+					<button type="button" id="auction-clear-sort">
 						<?php esc_html_e( 'Clear Sorting', 'auction' ); ?>
 					</button>
 				</div>
@@ -3123,16 +3125,25 @@ class Auction_Frontend {
 			<!-- Tab Content: Categories -->
 			<div class="auction-tab-content" id="categories" style="display: none; padding: 20px;">
 				<h3><?php esc_html_e( 'Categories', 'auction' ); ?></h3>
-				<div class="auction-categories-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
+				<div class="auction-categories-list">
 					<?php
 					if ( ! empty( $categories_map ) ) {
 						foreach ( $categories_map as $cat_data ) {
 							// Categories are already filtered, but double-check for safety
 							if ( isset( $cat_data['term'] ) && isset( $cat_data['count'] ) && $cat_data['count'] > 0 ) {
 								$term = $cat_data['term'];
-								echo '<div class="auction-category-item" style="padding: 15px; border: 1px solid #ddd; cursor: pointer; text-align: center;" data-category-slug="' . esc_attr( $term->slug ) . '">';
-								echo '<strong>' . esc_html( $term->name ) . '</strong><br>';
-								echo '<span>' . esc_html( $cat_data['count'] ) . ' ' . esc_html__( 'products', 'auction' ) . '</span>';
+								$thumbnail_id = get_term_meta( $term->term_id, 'thumbnail_id', true );
+								if ( $thumbnail_id ) {
+									$image_url = wp_get_attachment_image_url( $thumbnail_id, 'cat-thumb' );
+								} else {
+									$image_url = wc_placeholder_img_src('cat-thumb');
+								}
+								echo '<div class="auction-category-item" data-category-slug="' . esc_attr( $term->slug ) . '">';
+								echo '<div class="category-image">';
+									echo '<img src="' . esc_url( $image_url ) . '" alt="' . esc_attr( $term->name ) . '" width="332" height="382">';
+								echo '</div>';
+								echo '<h3><strong>' . esc_html( $term->name ) . '</strong><br>';
+								echo '(' . esc_html( $cat_data['count'] ) . ' ' . esc_html__( 'products', 'auction' ) . ')</h3>';
 								echo '</div>';
 							}
 						}
@@ -3157,7 +3168,7 @@ class Auction_Frontend {
 		}
 		?>
 		<style>
-		/* Sort dropdown styles */
+		/* Sort dropdown styles 
 		.auction-sort-wrapper {
 			position: relative;
 		}
@@ -3195,82 +3206,10 @@ class Auction_Frontend {
 			background: #f5f5f5;
 			font-weight: bold;
 			color: #000 !important;
-		}
+		}*/
 		
 		/* List layout styles - only apply when .is-list class is present */
-		.products.is-list,
-		.products.auction-products-container.is-list,
-		.auction-products-container.is-list {
-			display: flex !important;
-			flex-direction: column !important;
-			gap: 15px !important;
-		}
 		
-		.products.is-list li.product,
-		.products.auction-products-container.is-list li.product,
-		.auction-products-container.is-list li.product {
-			display: flex !important;
-			flex-direction: row !important;
-			align-items: flex-start !important;
-			width: 100% !important;
-			max-width: 100% !important;
-			margin: 0 !important;
-			float: none !important;
-		}
-		
-		.products.is-list li.product .woocommerce-loop-product__link,
-		.products.is-list li.product .wp-post-image,
-		.products.is-list li.product img {
-			width: 150px !important;
-			min-width: 150px !important;
-			max-width: 150px !important;
-			margin-right: 15px !important;
-			flex-shrink: 0 !important;
-		}
-		
-		.products.is-list li.product .woocommerce-loop-product__title,
-		.products.is-list li.product .product-details {
-			flex: 1 !important;
-		}
-		
-		/* Hide the original product title in list view (we'll show it inside auction-loop-info) */
-		.products.is-list li.product h2.woocommerce-loop-product__title,
-		.products.is-list li.product .woocommerce-loop-product__title {
-			display: none !important;
-		}
-		
-		/* Style the product title inside auction-loop-info in list view */
-		.products.is-list li.product .auction-loop-info .auction-product-title-in-list {
-			font-size: 18px !important;
-			font-weight: bold !important;
-			margin-bottom: 10px !important;
-			padding-bottom: 10px !important;
-			border-bottom: 1px solid #e0e0e0 !important;
-		}
-		
-		/* Hide filtered out items even in list view - must override !important rules */
-		.products.is-list li.product.auction-filtered-out,
-		.products.auction-products-container.is-list li.product.auction-filtered-out,
-		.auction-products-container.is-list li.product.auction-filtered-out,
-		li.product.auction-filtered-out,
-		.auction-product-item.auction-filtered-out,
-		.auction-product-card.auction-filtered-out {
-			display: none !important;
-			visibility: hidden !important;
-			opacity: 0 !important;
-			height: 0 !important;
-			overflow: hidden !important;
-			margin: 0 !important;
-			padding: 0 !important;
-		}
-		
-		/* Grid layout - ensure WooCommerce's default grid layout is maintained */
-		/* Don't override - let WooCommerce handle the default layout */
-		.products.is-grid li.product,
-		.products.auction-products-container.is-grid li.product {
-			/* Reset any list-mode styles that might interfere */
-			display: block;
-		}
 		
 		/* Hide products when non-Bid Gallery tabs are active */
 		.auction-listing-page:has(.auction-tab[data-tab="dates-times"].active) ~ .products,
@@ -3424,8 +3363,8 @@ class Auction_Frontend {
 			// Tab switching
 			$(document).on('click', '.auction-tab', function() {
 				var tabId = $(this).data('tab');
-				$('.auction-tab').removeClass('active').css({'background': '#87ceeb', 'color': '#333'});
-				$(this).addClass('active').css({'background': '#ff6600', 'color': 'white'});
+				$('.auction-tab').removeClass('active');
+				$(this).addClass('active');
 				$('.auction-tab-content').hide();
 				$('#' + tabId).show();
 				
@@ -3511,7 +3450,7 @@ class Auction_Frontend {
 				
 				return null;
 			}
-			
+
 			// Function to move product title into auction-loop-info for list view
 			function moveTitleToAuctionInfo($container, isList) {
 				$container.find('li.product').each(function() {
@@ -3562,11 +3501,9 @@ class Auction_Frontend {
 					$container.removeClass('is-grid is-list grid-view list-view');
 					if (newLayout === 'list') {
 						$container.addClass('is-list');
-						// Move product titles into auction-loop-info
 						moveTitleToAuctionInfo($container, true);
 					} else {
 						$container.addClass('is-grid');
-						// Restore product titles to original position
 						moveTitleToAuctionInfo($container, false);
 					}
 					console.log('Auction layout toggle: Applied', newLayout, 'layout to container', $container[0]);
@@ -3580,11 +3517,9 @@ class Auction_Frontend {
 							$container.removeClass('is-grid is-list grid-view list-view');
 							if (newLayout === 'list') {
 								$container.addClass('is-list');
-								// Move product titles into auction-loop-info
 								moveTitleToAuctionInfo($container, true);
 							} else {
 								$container.addClass('is-grid');
-								// Restore product titles to original position
 								moveTitleToAuctionInfo($container, false);
 							}
 							console.log('Auction layout toggle: Found container via product item', $container[0]);
@@ -3595,11 +3530,9 @@ class Auction_Frontend {
 								$container.removeClass('is-grid is-list grid-view list-view');
 								if (newLayout === 'list') {
 									$container.addClass('is-list');
-									// Move product titles into auction-loop-info
 									moveTitleToAuctionInfo($container, true);
 								} else {
 									$container.addClass('is-grid');
-									// Restore product titles to original position
 									moveTitleToAuctionInfo($container, false);
 								}
 								console.log('Auction layout toggle: Found fallback container', $container[0]);
@@ -3621,9 +3554,9 @@ class Auction_Frontend {
 					}
 				}
 				
-				$(this).text(newLayout === 'grid' ? '☰' : '⧉');
+				$(this).toggleClass('grid-view', newLayout === 'grid').toggleClass('list-view', newLayout !== 'grid');
 			});
-			
+
 			// Handle class-based layout toggle (container with multiple buttons)
 			$(document).on('click', '.auction-layout-toggle .layout-toggle-button', function(e) {
 				e.preventDefault();
@@ -3737,7 +3670,14 @@ class Auction_Frontend {
 				// Update button text to show current direction
 				var $btn = $(this).closest('.auction-sort-wrapper').find('.auction-sort-btn');
 				var btnText = $btn.text().replace(/\s*[↑↓↕]\s*$/, '').trim();
-				$btn.text(btnText + ' ' + (direction === 'asc' ? '↑' : '↓'));
+				//$btn.text(btnText + ' ' + (direction === 'asc' ? '↑' : '↓'));
+				const $arrow = $btn.find('.main_arr');
+				$arrow.removeClass('up down');
+				if (direction === 'asc') {
+				    $arrow.addClass('up');
+				} else if (direction === 'desc') {
+				    $arrow.addClass('down');
+				}
 				
 				// Close dropdown
 				$(this).closest('.auction-sort-dropdown').fadeOut(200);
@@ -3762,7 +3702,7 @@ class Auction_Frontend {
 				$('.auction-sort-btn').each(function() {
 					var $btn = $(this);
 					var btnText = $btn.text().replace(/\s*[↑↓↕]\s*$/, '').trim();
-					$btn.text(btnText + ' ↕');
+					$btn.html(btnText + ' <span class="main_arr">&nbsp;</span>');
 				});
 				
 				// Close all dropdowns
@@ -3872,11 +3812,15 @@ class Auction_Frontend {
 
 					// Match logic
 					var matchesSearch = true;
+					// if (searchTerm) {
+					// 	matchesSearch = (title && title.indexOf(searchTerm) !== -1);
 					if (searchTerm && searchTerm.length > 0) {
 						matchesSearch = (title && title.length > 0 && title.indexOf(searchTerm) !== -1);
 					}
+					// }
 					var matchesCategory = !categorySlug || itemCategories.indexOf(categorySlug) !== -1;
 
+					// Show / hide
 					// Show / hide - use class-based approach to work with list view CSS !important
 					if (matchesSearch && matchesCategory) {
 						// Show item - remove filter class and reset styles
