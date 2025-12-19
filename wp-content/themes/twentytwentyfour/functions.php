@@ -507,12 +507,9 @@ add_shortcode( 'auction_products', 'auction_products_shortcode' );
 
 
 
-add_action('admin_menu', 'register_review_admin_page');
-
-function register_review_admin_page()
-{
+add_action('admin_menu', function () {
     add_menu_page(
-        'Post Review',
+        'Post Product Review',
         'Post Review',
         'manage_options',
         'post-review-admin',
@@ -520,77 +517,81 @@ function register_review_admin_page()
         'dashicons-star-filled',
         26
     );
-}
+});
+
+
+add_action('admin_enqueue_scripts', function ($hook) {
+    if ($hook !== 'toplevel_page_post-review-admin') return;
+
+    wp_enqueue_style('select2', 'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css');
+    wp_enqueue_script('select2', 'https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js', ['jquery'], null, true);
+});
 
 function render_review_admin_page()
 {
     ?>
     <div class="wrap">
-        <h1>Post a Review</h1>
+        <h1>Post Product Review</h1>
 
         <form method="POST"
               action="<?php echo admin_url('admin-post.php'); ?>"
               enctype="multipart/form-data">
 
             <input type="hidden" name="action" value="submit_review_custom">
-            <input type="hidden" name="submit_review_custom" value="1">
 
-            <!-- PRODUCT ID -->
             <table class="form-table">
+
+                <!-- PRODUCT SELECT -->
                 <tr>
-                    <th>Product ID</th>
+                    <th>Product</th>
                     <td>
-					<select name="product_id" id="product_id" required>
-						<option value="">Select Product</option>
-						<?php
-						$products = wc_get_products([
-							'limit'  => -1,
-							'status' => 'publish',
-						]);
+                        <select name="product_id" id="product_id" style="width:420px;" required>
+                            <option value="">Search product…</option>
+                            <?php
+                            $products = wc_get_products([
+                                'limit'  => -1,
+                                'status' => 'publish',
+                            ]);
 
-						foreach ($products as $product) {
-							$image_id  = $product->get_image_id();
-							$image_url = $image_id ? wp_get_attachment_image_url($image_id, 'thumbnail') : wc_placeholder_img_src();
+                            foreach ($products as $product) {
+                                $img_id  = $product->get_image_id();
+                                $img     = $img_id ? wp_get_attachment_image_url($img_id, 'thumbnail') : wc_placeholder_img_src();
+                                $price   = wp_strip_all_tags($product->get_price_html());
+                                $sku     = $product->get_sku();
 
-							echo '<option value="' . esc_attr($product->get_id()) . '" 
-										data-image="' . esc_url($image_url) . '">'
-								. esc_html($product->get_name()) .
-								'</option>';
-						}
-						?>
-					</select>
-					<div id="product_image_preview" style="margin-top:10px; display:none;">
-						<img id="product_image" src="" style="max-width:120px; border:1px solid #ccc; padding:5px;">
-					</div>
-
-
-
+                                echo '<option value="' . esc_attr($product->get_id()) . '"
+                                        data-image="' . esc_url($img) . '"
+                                        data-price="' . esc_attr($price) . '"
+                                        data-sku="' . esc_attr($sku) . '">'
+                                        . esc_html($product->get_name()) .
+                                     '</option>';
+                            }
+                            ?>
+                        </select>
                     </td>
                 </tr>
 
+                <!-- AUTHOR -->
                 <tr>
                     <th>Name</th>
-                    <td>
-                        <input type="text" name="author" class="regular-text" required>
-                    </td>
+                    <td><input type="text" name="author" class="regular-text" required></td>
                 </tr>
 
+                <!-- EMAIL -->
                 <tr>
                     <th>Email</th>
-                    <td>
-                        <input type="email" name="email" class="regular-text" required>
-                    </td>
+                    <td><input type="email" name="email" class="regular-text" required></td>
                 </tr>
 
+                <!-- REVIEW -->
                 <tr>
-                    <th>Tour Review</th>
-                    <td>
-                        <textarea name="comment" rows="4" class="large-text" required></textarea>
-                    </td>
+                    <th>Review</th>
+                    <td><textarea name="comment" rows="4" class="large-text" required></textarea></td>
                 </tr>
 
+                <!-- RATING -->
                 <tr>
-                    <th>Tour Rating</th>
+                    <th>Rating</th>
                     <td>
                         <select name="rating" required>
                             <option value="">Select</option>
@@ -603,11 +604,10 @@ function render_review_admin_page()
                     </td>
                 </tr>
 
+                <!-- GUIDE INFO (OPTIONAL) -->
                 <tr>
                     <th>Guide Review</th>
-                    <td>
-                        <input type="text" name="reviewTitle" class="regular-text">
-                    </td>
+                    <td><input type="text" name="guide_review" class="regular-text"></td>
                 </tr>
 
                 <tr>
@@ -624,41 +624,48 @@ function render_review_admin_page()
                     </td>
                 </tr>
 
+                <!-- IMAGES -->
                 <tr>
-                    <th>Upload Images</th>
-                    <td>
-                        <input type="file" name="reviewImages[]" multiple>
-                    </td>
+                    <th>Images</th>
+                    <td><input type="file" name="reviewImages[]" multiple></td>
                 </tr>
+
             </table>
 
             <?php submit_button('Submit Review'); ?>
         </form>
     </div>
-	<script>
-		document.getElementById('product_id').addEventListener('change', function () {
-			const selected = this.options[this.selectedIndex];
-			const imageUrl = selected.getAttribute('data-image');
 
-			const preview = document.getElementById('product_image_preview');
-			const img = document.getElementById('product_image');
+    <!-- SELECT2 TEMPLATE -->
+    <script>
+    jQuery(function ($) {
+        function formatProduct(item) {
+            if (!item.id) return item.text;
 
-			if (imageUrl) {
-				img.src = imageUrl;
-				preview.style.display = 'block';
-			} else {
-				preview.style.display = 'none';
-			}
-		});
-	</script>
+            const el = $(item.element);
+            return $(`
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <img src="${el.data('image')}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;">
+                    <div>
+                        <strong>${item.text}</strong><br>
+                        <small>SKU: ${el.data('sku') || '—'} | ${el.data('price') || ''}</small>
+                    </div>
+                </div>
+            `);
+        }
 
+        $('#product_id').select2({
+            templateResult: formatProduct,
+            templateSelection: formatProduct,
+            escapeMarkup: m => m
+        });
+    });
+    </script>
     <?php
 }
 
-add_action('admin_post_submit_review_custom', 'handle_admin_review_submission');
+add_action('admin_post_submit_review_custom', function () {
 
-function handle_admin_review_submission()
-{
     if (!current_user_can('manage_options')) {
         wp_die('Unauthorized');
     }
@@ -668,9 +675,10 @@ function handle_admin_review_submission()
     $email        = sanitize_email($_POST['email']);
     $comment      = sanitize_textarea_field($_POST['comment']);
     $rating       = intval($_POST['rating']);
-    $guide_rating = intval($_POST['guide_rating']);
-    $guide_review = sanitize_text_field($_POST['reviewTitle']);
+    $guide_rating = intval($_POST['guide_rating'] ?? 0);
+    $guide_review = sanitize_text_field($_POST['guide_review'] ?? '');
 
+    // INSERT REVIEW
     $comment_id = wp_insert_comment([
         'comment_post_ID'      => $product_id,
         'comment_author'       => $author,
@@ -682,18 +690,17 @@ function handle_admin_review_submission()
     ]);
 
     if (!$comment_id) {
-        wp_die('Failed to insert review');
+        wp_die('Failed to save review');
     }
 
-	// WooCommerce REQUIRED rating key
-	add_comment_meta($comment_id, 'rating', $rating);
+    // REQUIRED FOR WOOCOMMERCE
+    add_comment_meta($comment_id, 'rating', $rating);
 
-	// Optional custom fields
-	add_comment_meta($comment_id, 'guide_rating', $guide_rating);
-	add_comment_meta($comment_id, 'guide_review', $guide_review);
+    // OPTIONAL META
+    if ($guide_rating) add_comment_meta($comment_id, 'guide_rating', $guide_rating);
+    if ($guide_review) add_comment_meta($comment_id, 'guide_review', $guide_review);
 
-
-    // Image Upload
+    // IMAGE UPLOAD
     if (!empty($_FILES['reviewImages']['name'][0])) {
         require_once ABSPATH . 'wp-admin/includes/file.php';
         require_once ABSPATH . 'wp-admin/includes/media.php';
@@ -711,7 +718,6 @@ function handle_admin_review_submission()
             ];
 
             $attach_id = media_handle_upload('file', $product_id);
-
             if (!is_wp_error($attach_id)) {
                 $image_ids[] = $attach_id;
             }
@@ -720,6 +726,8 @@ function handle_admin_review_submission()
         add_comment_meta($comment_id, 'review_images', $image_ids);
     }
 
+    wc_update_product_rating($product_id);
+
     wp_redirect(admin_url('edit-comments.php?review=success'));
     exit;
-}
+});
