@@ -502,3 +502,224 @@ function auction_products_shortcode( $atts ) {
 	return ob_get_clean();
 }
 add_shortcode( 'auction_products', 'auction_products_shortcode' );
+
+/////////////////////////////////////////////////////////////////////////////////
+
+
+
+add_action('admin_menu', 'register_review_admin_page');
+
+function register_review_admin_page()
+{
+    add_menu_page(
+        'Post Review',
+        'Post Review',
+        'manage_options',
+        'post-review-admin',
+        'render_review_admin_page',
+        'dashicons-star-filled',
+        26
+    );
+}
+
+function render_review_admin_page()
+{
+    ?>
+    <div class="wrap">
+        <h1>Post a Review</h1>
+
+        <form method="POST"
+              action="<?php echo admin_url('admin-post.php'); ?>"
+              enctype="multipart/form-data">
+
+            <input type="hidden" name="action" value="submit_review_custom">
+            <input type="hidden" name="submit_review_custom" value="1">
+
+            <!-- PRODUCT ID -->
+            <table class="form-table">
+                <tr>
+                    <th>Product ID</th>
+                    <td>
+					<select name="product_id" id="product_id" required>
+						<option value="">Select Product</option>
+						<?php
+						$products = wc_get_products([
+							'limit'  => -1,
+							'status' => 'publish',
+						]);
+
+						foreach ($products as $product) {
+							$image_id  = $product->get_image_id();
+							$image_url = $image_id ? wp_get_attachment_image_url($image_id, 'thumbnail') : wc_placeholder_img_src();
+
+							echo '<option value="' . esc_attr($product->get_id()) . '" 
+										data-image="' . esc_url($image_url) . '">'
+								. esc_html($product->get_name()) .
+								'</option>';
+						}
+						?>
+					</select>
+					<div id="product_image_preview" style="margin-top:10px; display:none;">
+						<img id="product_image" src="" style="max-width:120px; border:1px solid #ccc; padding:5px;">
+					</div>
+
+
+
+                    </td>
+                </tr>
+
+                <tr>
+                    <th>Name</th>
+                    <td>
+                        <input type="text" name="author" class="regular-text" required>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th>Email</th>
+                    <td>
+                        <input type="email" name="email" class="regular-text" required>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th>Tour Review</th>
+                    <td>
+                        <textarea name="comment" rows="4" class="large-text" required></textarea>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th>Tour Rating</th>
+                    <td>
+                        <select name="rating" required>
+                            <option value="">Select</option>
+                            <option value="1">1 ⭐</option>
+                            <option value="2">2 ⭐</option>
+                            <option value="3">3 ⭐</option>
+                            <option value="4">4 ⭐</option>
+                            <option value="5">5 ⭐</option>
+                        </select>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th>Guide Review</th>
+                    <td>
+                        <input type="text" name="reviewTitle" class="regular-text">
+                    </td>
+                </tr>
+
+                <tr>
+                    <th>Guide Rating</th>
+                    <td>
+                        <select name="guide_rating">
+                            <option value="">Select</option>
+                            <option value="1">1 ⭐</option>
+                            <option value="2">2 ⭐</option>
+                            <option value="3">3 ⭐</option>
+                            <option value="4">4 ⭐</option>
+                            <option value="5">5 ⭐</option>
+                        </select>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th>Upload Images</th>
+                    <td>
+                        <input type="file" name="reviewImages[]" multiple>
+                    </td>
+                </tr>
+            </table>
+
+            <?php submit_button('Submit Review'); ?>
+        </form>
+    </div>
+	<script>
+		document.getElementById('product_id').addEventListener('change', function () {
+			const selected = this.options[this.selectedIndex];
+			const imageUrl = selected.getAttribute('data-image');
+
+			const preview = document.getElementById('product_image_preview');
+			const img = document.getElementById('product_image');
+
+			if (imageUrl) {
+				img.src = imageUrl;
+				preview.style.display = 'block';
+			} else {
+				preview.style.display = 'none';
+			}
+		});
+	</script>
+
+    <?php
+}
+
+add_action('admin_post_submit_review_custom', 'handle_admin_review_submission');
+
+function handle_admin_review_submission()
+{
+    if (!current_user_can('manage_options')) {
+        wp_die('Unauthorized');
+    }
+
+    $product_id   = intval($_POST['product_id']);
+    $author       = sanitize_text_field($_POST['author']);
+    $email        = sanitize_email($_POST['email']);
+    $comment      = sanitize_textarea_field($_POST['comment']);
+    $rating       = intval($_POST['rating']);
+    $guide_rating = intval($_POST['guide_rating']);
+    $guide_review = sanitize_text_field($_POST['reviewTitle']);
+
+    $comment_id = wp_insert_comment([
+        'comment_post_ID'      => $product_id,
+        'comment_author'       => $author,
+        'comment_author_email' => $email,
+        'comment_content'      => $comment,
+        'comment_type'         => 'review',
+        'comment_approved'     => 1,
+        'user_id'              => get_current_user_id(),
+    ]);
+
+    if (!$comment_id) {
+        wp_die('Failed to insert review');
+    }
+
+	// WooCommerce REQUIRED rating key
+	add_comment_meta($comment_id, 'rating', $rating);
+
+	// Optional custom fields
+	add_comment_meta($comment_id, 'guide_rating', $guide_rating);
+	add_comment_meta($comment_id, 'guide_review', $guide_review);
+
+
+    // Image Upload
+    if (!empty($_FILES['reviewImages']['name'][0])) {
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/media.php';
+        require_once ABSPATH . 'wp-admin/includes/image.php';
+
+        $image_ids = [];
+
+        foreach ($_FILES['reviewImages']['name'] as $key => $value) {
+            $_FILES['file'] = [
+                'name'     => $_FILES['reviewImages']['name'][$key],
+                'type'     => $_FILES['reviewImages']['type'][$key],
+                'tmp_name' => $_FILES['reviewImages']['tmp_name'][$key],
+                'error'    => $_FILES['reviewImages']['error'][$key],
+                'size'     => $_FILES['reviewImages']['size'][$key],
+            ];
+
+            $attach_id = media_handle_upload('file', $product_id);
+
+            if (!is_wp_error($attach_id)) {
+                $image_ids[] = $attach_id;
+            }
+        }
+
+        add_comment_meta($comment_id, 'review_images', $image_ids);
+    }
+
+    wp_redirect(admin_url('edit-comments.php?review=success'));
+    exit;
+}
