@@ -891,6 +891,37 @@ function quiz_attempt_make_read_only() {
 }
 add_action('admin_head-post.php', 'quiz_attempt_make_read_only');
 
+// Hide "Add New" button on the Quiz Attempts list screen.
+function quiz_attempt_hide_add_new_on_list() {
+    $screen = get_current_screen();
+    if (!$screen || $screen->post_type !== 'quiz_attempt') {
+        return;
+    }
+    ?>
+    <style>
+        .page-title-action {
+            display: none !important;
+        }
+    </style>
+    <?php
+}
+add_action('admin_head-edit.php', 'quiz_attempt_hide_add_new_on_list');
+
+// Remove Edit and Quick Edit row actions for Quiz Attempts.
+function quiz_attempt_remove_row_actions($actions, $post) {
+    if ($post->post_type === 'quiz_attempt') {
+        if (isset($actions['edit'])) {
+            unset($actions['edit']);
+        }
+        // Quick Edit action key is 'inline hide-if-no-js'.
+        if (isset($actions['inline hide-if-no-js'])) {
+            unset($actions['inline hide-if-no-js']);
+        }
+    }
+    return $actions;
+}
+add_filter('post_row_actions', 'quiz_attempt_remove_row_actions', 10, 2);
+
 // Add Meta Boxes for Quiz Questions
 function add_quiz_question_meta_boxes() {
     add_meta_box(
