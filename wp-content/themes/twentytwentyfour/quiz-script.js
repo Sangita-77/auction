@@ -6,8 +6,10 @@ jQuery(document).ready(function($) {
     // Update progress bar
     function updateProgress() {
         var progress = ((currentQuestion + 1) / totalQuestions) * 100;
+        var progressPercent = Math.round(progress);
         $('.progress-fill').css('width', progress + '%');
         $('.current-question').text(currentQuestion + 1);
+        $('.progress-percentage').text(progressPercent + '%');
     }
 
     // Show a specific question index
@@ -81,6 +83,7 @@ jQuery(document).ready(function($) {
                 // Last question -> show email section
                 $('.quiz-email-section').fadeIn(300);
                 $('.progress-fill').css('width', '100%');
+                $('.progress-percentage').text('100%');
             }
         });
     }

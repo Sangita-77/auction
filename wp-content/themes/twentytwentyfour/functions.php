@@ -1369,7 +1369,9 @@ function quiz_shortcode($atts) {
         </form>
 		<div class="quiz-progress">
             <div class="progress-bar">
-                <div class="progress-fill" style="width: 0%;"></div>
+                <div class="progress-fill" style="width: 0%;">
+                    <span class="progress-percentage">0%</span>
+                </div>
             </div>
             <span class="progress-text">Question <span class="current-question">1</span> of <span class="total-questions"><?php echo count($questions); ?></span></span>
         </div>
