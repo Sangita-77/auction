@@ -2818,3 +2818,138 @@
 [24-Dec-2025 08:54:48 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 8
 [24-Dec-2025 08:54:48 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 9
 [24-Dec-2025 08:54:48 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 10
+[24-Dec-2025 08:56:47 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 19
+[24-Dec-2025 08:56:47 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 21
+[24-Dec-2025 08:56:47 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 23
+[24-Dec-2025 08:56:47 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 8
+[24-Dec-2025 08:56:47 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 9
+[24-Dec-2025 08:56:47 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 10
+[24-Dec-2025 08:56:49 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 19
+[24-Dec-2025 08:56:49 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 21
+[24-Dec-2025 08:56:49 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 23
+[24-Dec-2025 08:56:49 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 8
+[24-Dec-2025 08:56:49 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 9
+[24-Dec-2025 08:56:49 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 10
+[24-Dec-2025 08:58:48 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 19
+[24-Dec-2025 08:58:48 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 21
+[24-Dec-2025 08:58:48 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 23
+[24-Dec-2025 08:58:48 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 8
+[24-Dec-2025 08:58:48 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 9
+[24-Dec-2025 08:58:48 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 10
+[24-Dec-2025 08:58:51 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 19
+[24-Dec-2025 08:58:51 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 21
+[24-Dec-2025 08:58:51 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 23
+[24-Dec-2025 08:58:51 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 8
+[24-Dec-2025 08:58:51 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 9
+[24-Dec-2025 08:58:51 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 10
+[24-Dec-2025 09:00:50 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 19
+[24-Dec-2025 09:00:50 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 21
+[24-Dec-2025 09:00:50 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 23
+[24-Dec-2025 09:00:50 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 8
+[24-Dec-2025 09:00:50 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 9
+[24-Dec-2025 09:00:50 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 10
+[24-Dec-2025 09:00:50 UTC] PHP Warning:  Undefined variable $question_text in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 959
+[24-Dec-2025 09:00:50 UTC] PHP Deprecated:  htmlspecialchars(): Passing null to parameter #1 ($string) of type string is deprecated in F:\SANGITA\xampp\htdocs\auction\wp-includes\formatting.php on line 4724
+[24-Dec-2025 09:00:50 UTC] PHP Warning:  Undefined variable $answer_type in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 967
+[24-Dec-2025 09:00:50 UTC] PHP Warning:  Undefined variable $answer_type in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 968
+[24-Dec-2025 09:00:50 UTC] PHP Warning:  Undefined variable $answer_type in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 969
+[24-Dec-2025 09:00:50 UTC] PHP Warning:  Undefined variable $answer_options in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 1016
+[24-Dec-2025 09:00:50 UTC] PHP Fatal error:  Uncaught TypeError: count(): Argument #1 ($value) must be of type Countable|array, null given in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php:1016
+Stack trace:
+#0 F:\SANGITA\xampp\htdocs\auction\wp-settings.php(695): include()
+#1 F:\SANGITA\xampp\htdocs\auction\wp-config.php(104): require_once('F:\\SANGITA\\xamp...')
+#2 F:\SANGITA\xampp\htdocs\auction\wp-load.php(50): require_once('F:\\SANGITA\\xamp...')
+#3 F:\SANGITA\xampp\htdocs\auction\wp-admin\admin-ajax.php(22): require_once('F:\\SANGITA\\xamp...')
+#4 {main}
+  thrown in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 1016
+[24-Dec-2025 09:00:50 UTC] PHP Notice:  Function _load_textdomain_just_in_time was called <strong>incorrectly</strong>. Translation loading for the <code>twentytwentyfour</code> domain was triggered too early. This is usually an indicator for some code in the plugin or theme running too early. Translations should be loaded at the <code>init</code> action or later. Please see <a href="https://developer.wordpress.org/advanced-administration/debug/debug-wordpress/">Debugging in WordPress</a> for more information. (This message was added in version 6.7.0.) in F:\SANGITA\xampp\htdocs\auction\wp-includes\functions.php on line 6121
+[24-Dec-2025 09:00:50 UTC] PHP Warning:  Trying to access array offset on value of type bool in F:\SANGITA\xampp\htdocs\auction\wp-includes\class-wp-recovery-mode-email-service.php on line 367
+[24-Dec-2025 09:00:50 UTC] PHP Warning:  Trying to access array offset on value of type bool in F:\SANGITA\xampp\htdocs\auction\wp-includes\class-wp-recovery-mode-email-service.php on line 368
+[24-Dec-2025 09:02:50 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 19
+[24-Dec-2025 09:02:50 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 21
+[24-Dec-2025 09:02:50 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 23
+[24-Dec-2025 09:02:50 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 8
+[24-Dec-2025 09:02:50 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 9
+[24-Dec-2025 09:02:50 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 10
+[24-Dec-2025 09:02:50 UTC] PHP Warning:  Undefined variable $question_text in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 959
+[24-Dec-2025 09:02:50 UTC] PHP Deprecated:  htmlspecialchars(): Passing null to parameter #1 ($string) of type string is deprecated in F:\SANGITA\xampp\htdocs\auction\wp-includes\formatting.php on line 4724
+[24-Dec-2025 09:02:50 UTC] PHP Warning:  Undefined variable $answer_type in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 967
+[24-Dec-2025 09:02:50 UTC] PHP Warning:  Undefined variable $answer_type in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 968
+[24-Dec-2025 09:02:50 UTC] PHP Warning:  Undefined variable $answer_type in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 969
+[24-Dec-2025 09:02:50 UTC] PHP Warning:  Undefined variable $answer_options in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 1016
+[24-Dec-2025 09:02:50 UTC] PHP Fatal error:  Uncaught TypeError: count(): Argument #1 ($value) must be of type Countable|array, null given in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php:1016
+Stack trace:
+#0 F:\SANGITA\xampp\htdocs\auction\wp-settings.php(695): include()
+#1 F:\SANGITA\xampp\htdocs\auction\wp-config.php(104): require_once('F:\\SANGITA\\xamp...')
+#2 F:\SANGITA\xampp\htdocs\auction\wp-load.php(50): require_once('F:\\SANGITA\\xamp...')
+#3 F:\SANGITA\xampp\htdocs\auction\wp-admin\admin-ajax.php(22): require_once('F:\\SANGITA\\xamp...')
+#4 {main}
+  thrown in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 1016
+[24-Dec-2025 09:02:52 UTC] PHP Notice:  Function _load_textdomain_just_in_time was called <strong>incorrectly</strong>. Translation loading for the <code>woocommerce</code> domain was triggered too early. This is usually an indicator for some code in the plugin or theme running too early. Translations should be loaded at the <code>init</code> action or later. Please see <a href="https://developer.wordpress.org/advanced-administration/debug/debug-wordpress/">Debugging in WordPress</a> for more information. (This message was added in version 6.7.0.) in F:\SANGITA\xampp\htdocs\auction\wp-includes\functions.php on line 6121
+[24-Dec-2025 09:02:58 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 19
+[24-Dec-2025 09:02:58 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 21
+[24-Dec-2025 09:02:58 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 23
+[24-Dec-2025 09:02:58 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 8
+[24-Dec-2025 09:02:58 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 9
+[24-Dec-2025 09:02:58 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 10
+[24-Dec-2025 09:02:58 UTC] PHP Warning:  Undefined variable $question_text in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 959
+[24-Dec-2025 09:02:58 UTC] PHP Deprecated:  htmlspecialchars(): Passing null to parameter #1 ($string) of type string is deprecated in F:\SANGITA\xampp\htdocs\auction\wp-includes\formatting.php on line 4724
+[24-Dec-2025 09:02:58 UTC] PHP Warning:  Undefined variable $answer_type in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 967
+[24-Dec-2025 09:02:58 UTC] PHP Warning:  Undefined variable $answer_type in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 968
+[24-Dec-2025 09:02:58 UTC] PHP Warning:  Undefined variable $answer_type in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 969
+[24-Dec-2025 09:02:58 UTC] PHP Warning:  Undefined variable $answer_options in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 1016
+[24-Dec-2025 09:02:58 UTC] PHP Fatal error:  Uncaught TypeError: count(): Argument #1 ($value) must be of type Countable|array, null given in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php:1016
+Stack trace:
+#0 F:\SANGITA\xampp\htdocs\auction\wp-settings.php(695): include()
+#1 F:\SANGITA\xampp\htdocs\auction\wp-config.php(104): require_once('F:\\SANGITA\\xamp...')
+#2 F:\SANGITA\xampp\htdocs\auction\wp-load.php(50): require_once('F:\\SANGITA\\xamp...')
+#3 F:\SANGITA\xampp\htdocs\auction\wp-admin\admin-ajax.php(22): require_once('F:\\SANGITA\\xamp...')
+#4 {main}
+  thrown in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 1016
+[24-Dec-2025 09:02:58 UTC] PHP Notice:  Function _load_textdomain_just_in_time was called <strong>incorrectly</strong>. Translation loading for the <code>woocommerce</code> domain was triggered too early. This is usually an indicator for some code in the plugin or theme running too early. Translations should be loaded at the <code>init</code> action or later. Please see <a href="https://developer.wordpress.org/advanced-administration/debug/debug-wordpress/">Debugging in WordPress</a> for more information. (This message was added in version 6.7.0.) in F:\SANGITA\xampp\htdocs\auction\wp-includes\functions.php on line 6121
+[24-Dec-2025 09:03:00 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 19
+[24-Dec-2025 09:03:00 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 21
+[24-Dec-2025 09:03:00 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 23
+[24-Dec-2025 09:03:00 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 8
+[24-Dec-2025 09:03:00 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 9
+[24-Dec-2025 09:03:00 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 10
+[24-Dec-2025 09:03:00 UTC] PHP Warning:  Undefined variable $question_text in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 959
+[24-Dec-2025 09:03:00 UTC] PHP Deprecated:  htmlspecialchars(): Passing null to parameter #1 ($string) of type string is deprecated in F:\SANGITA\xampp\htdocs\auction\wp-includes\formatting.php on line 4724
+[24-Dec-2025 09:03:00 UTC] PHP Warning:  Undefined variable $answer_type in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 967
+[24-Dec-2025 09:03:00 UTC] PHP Warning:  Undefined variable $answer_type in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 968
+[24-Dec-2025 09:03:00 UTC] PHP Warning:  Undefined variable $answer_type in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 969
+[24-Dec-2025 09:03:00 UTC] PHP Warning:  Undefined variable $answer_options in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 1016
+[24-Dec-2025 09:03:00 UTC] PHP Fatal error:  Uncaught TypeError: count(): Argument #1 ($value) must be of type Countable|array, null given in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php:1016
+Stack trace:
+#0 F:\SANGITA\xampp\htdocs\auction\wp-settings.php(695): include()
+#1 F:\SANGITA\xampp\htdocs\auction\wp-config.php(104): require_once('F:\\SANGITA\\xamp...')
+#2 F:\SANGITA\xampp\htdocs\auction\wp-load.php(50): require_once('F:\\SANGITA\\xamp...')
+#3 F:\SANGITA\xampp\htdocs\auction\wp-admin\admin.php(35): require_once('F:\\SANGITA\\xamp...')
+#4 F:\SANGITA\xampp\htdocs\auction\wp-admin\index.php(10): require_once('F:\\SANGITA\\xamp...')
+#5 {main}
+  thrown in F:\SANGITA\xampp\htdocs\auction\wp-content\themes\twentytwentyfour\functions.php on line 1016
+[24-Dec-2025 09:03:00 UTC] PHP Notice:  Function _load_textdomain_just_in_time was called <strong>incorrectly</strong>. Translation loading for the <code>woocommerce</code> domain was triggered too early. This is usually an indicator for some code in the plugin or theme running too early. Translations should be loaded at the <code>init</code> action or later. Please see <a href="https://developer.wordpress.org/advanced-administration/debug/debug-wordpress/">Debugging in WordPress</a> for more information. (This message was added in version 6.7.0.) in F:\SANGITA\xampp\htdocs\auction\wp-includes\functions.php on line 6121
+[24-Dec-2025 09:04:51 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 19
+[24-Dec-2025 09:04:51 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 21
+[24-Dec-2025 09:04:51 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 23
+[24-Dec-2025 09:04:51 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 8
+[24-Dec-2025 09:04:51 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 9
+[24-Dec-2025 09:04:51 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 10
+[24-Dec-2025 09:04:54 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 19
+[24-Dec-2025 09:04:54 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 21
+[24-Dec-2025 09:04:54 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 23
+[24-Dec-2025 09:04:54 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 8
+[24-Dec-2025 09:04:54 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 9
+[24-Dec-2025 09:04:54 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 10
+[24-Dec-2025 09:05:00 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 19
+[24-Dec-2025 09:05:00 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 21
+[24-Dec-2025 09:05:00 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 23
+[24-Dec-2025 09:05:00 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 8
+[24-Dec-2025 09:05:00 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 9
+[24-Dec-2025 09:05:00 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 10
+[24-Dec-2025 09:05:09 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 19
+[24-Dec-2025 09:05:09 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 21
+[24-Dec-2025 09:05:09 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\class-auction-product-helper.php on line 23
+[24-Dec-2025 09:05:09 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeImmutable' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 8
+[24-Dec-2025 09:05:09 UTC] PHP Warning:  The use statement with non-compound name 'DateTimeZone' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 9
+[24-Dec-2025 09:05:09 UTC] PHP Warning:  The use statement with non-compound name 'Exception' has no effect in F:\SANGITA\xampp\htdocs\auction\wp-content\plugins\auction\includes\admin\product\class-auction-product-tabs.php on line 10
